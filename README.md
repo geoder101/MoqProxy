@@ -41,6 +41,8 @@ mock.Object.Add(2, 3); // Returns 5, calls realCalc.Add(2, 3)
 
 ## Installation
 
+[![NuGet](https://img.shields.io/nuget/v/geoder101.MoqProxy.svg)](https://www.nuget.org/packages/geoder101.MoqProxy/)
+
 ```bash
 dotnet add package geoder101.MoqProxy
 ```

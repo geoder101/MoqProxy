@@ -13,6 +13,8 @@ This library provides extension methods to seamlessly integrate MoqProxy with Mi
 
 ## Installation
 
+[![NuGet](https://img.shields.io/nuget/v/geoder101.MoqProxy.DependencyInjection.Microsoft.svg)](https://www.nuget.org/packages/geoder101.MoqProxy.DependencyInjection.Microsoft/)
+
 ```bash
 dotnet add package geoder101.MoqProxy.DependencyInjection.Microsoft
 ```
