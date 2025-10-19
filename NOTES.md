@@ -17,5 +17,5 @@ dotnet nuget push "out/nupkgs/geoder101.MoqProxy.DependencyInjection.Microsoft.*
 ```
 
 ```bash
-dotnet nuget push "out/nupkgs/geoder101.MoqProxy.*.nupkg" -k <API_KEY> -s https://api.nuget.org/v3/index.json
+dotnet nuget push "out/nupkgs/geoder101.MoqProxy.1.*.nupkg" -k <API_KEY> -s https://api.nuget.org/v3/index.json
 ```
