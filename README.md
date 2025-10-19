@@ -326,5 +326,5 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ## Related Projects
 
-- [Moq](https://github.com/moq/moq4) - The mocking library this extends
+- [Moq](https://github.com/devlooped/moq) - The mocking library this extends
 - [Castle.DynamicProxy](https://www.castleproject.org/projects/dynamicproxy/) - Used by Moq for proxy generation
