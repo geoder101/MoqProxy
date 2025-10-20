@@ -1,5 +1,7 @@
 # MoqProxy.DependencyInjection.Microsoft
 
+[![NuGet](https://img.shields.io/nuget/v/geoder101.MoqProxy.DependencyInjection.Microsoft.svg)](https://www.nuget.org/packages/geoder101.MoqProxy.DependencyInjection.Microsoft/)
+
 Microsoft.Extensions.DependencyInjection integration for [MoqProxy](https://github.com/geoder101/MoqProxy) - enabling proxy pattern mocking within ASP.NET Core and other dependency injection scenarios.
 
 ## What is this?
@@ -12,8 +14,6 @@ This library provides extension methods to seamlessly integrate MoqProxy with Mi
 - **Observe service interactions** in complex dependency graphs
 
 ## Installation
-
-[![NuGet](https://img.shields.io/nuget/v/geoder101.MoqProxy.DependencyInjection.Microsoft.svg)](https://www.nuget.org/packages/geoder101.MoqProxy.DependencyInjection.Microsoft/)
 
 ```bash
 dotnet add package geoder101.MoqProxy.DependencyInjection.Microsoft
@@ -54,6 +54,7 @@ emailMock.Verify(e => e.SendWelcomeEmail("john@example.com"), Times.Once);
 3. Replaces the service registration with the mock object
 
 This means:
+
 - ✅ The real implementation runs normally
 - ✅ You can verify all interactions via Moq
 - ✅ You can override specific behaviors if needed
@@ -203,12 +204,14 @@ public static IServiceCollection AddMoqProxy<TService>(
 ```
 
 **Parameters:**
+
 - `services` - The service collection containing the service to proxy
 - `mock` - The Moq mock instance that will wrap the original implementation
 
 **Returns:** The `IServiceCollection` for method chaining
 
 **Remarks:**
+
 - The service must be registered before calling `AddMoqProxy`
 - The mock is automatically configured to proxy all calls using `SetupAsProxy()`
 - The original service lifetime (Singleton, Scoped, Transient) is preserved

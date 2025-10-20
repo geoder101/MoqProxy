@@ -1,5 +1,7 @@
 # MoqProxy
 
+[![NuGet](https://img.shields.io/nuget/v/geoder101.MoqProxy.svg)](https://www.nuget.org/packages/geoder101.MoqProxy/)
+
 A powerful extension for [Moq](https://github.com/devlooped/moq) that enables **proxy pattern mocking** - forward calls from a mock to a real implementation while maintaining full verification capabilities.
 
 ## Why MoqProxy?
@@ -14,14 +16,14 @@ MoqProxy bridges the gap between full mocking and real implementations, giving y
 
 ## How is this different from `CallBase = true`?
 
-| Feature | MoqProxy (`SetupAsProxy`) | `CallBase = true` |
-|---------|---------------------------|-------------------|
-| **Works with interfaces** | ✅ Yes - forwards to any implementation | ❌ No - interfaces have no base implementation |
-| **Separate implementation** | ✅ Forwards to a different instance | ❌ Only calls the mock's own base methods |
-| **Property synchronization** | ✅ Mock and implementation stay in sync | ⚠️ Only if mock is the implementation |
-| **Use case** | Spy on existing objects, test decorators | Partial mocking of concrete classes |
-| **Generic method support** | ✅ Full support via custom interceptor | ✅ Supported |
-| **Indexer support** | ✅ 1-2 parameter indexers | ✅ Supported |
+| Feature                      | MoqProxy (`SetupAsProxy`)                | `CallBase = true`                             |
+| ---------------------------- | ---------------------------------------- | --------------------------------------------- |
+| **Works with interfaces**    | ✅ Yes - forwards to any implementation   | ❌ No - interfaces have no base implementation |
+| **Separate implementation**  | ✅ Forwards to a different instance       | ❌ Only calls the mock's own base methods      |
+| **Property synchronization** | ✅ Mock and implementation stay in sync   | ⚠️ Only if mock is the implementation          |
+| **Use case**                 | Spy on existing objects, test decorators | Partial mocking of concrete classes           |
+| **Generic method support**   | ✅ Full support via custom interceptor    | ✅ Supported                                   |
+| **Indexer support**          | ✅ 1-2 parameter indexers                 | ✅ Supported                                   |
 
 **Key Difference:** `CallBase = true` only works with **abstract or virtual members of the mocked class itself**. `SetupAsProxy` works with **interfaces** and forwards calls to a **separate implementation instance**, making it perfect for the spy pattern and testing decorators.
 
@@ -41,11 +43,21 @@ mock.Object.Add(2, 3); // Returns 5, calls realCalc.Add(2, 3)
 
 ## Installation
 
-[![NuGet](https://img.shields.io/nuget/v/geoder101.MoqProxy.svg)](https://www.nuget.org/packages/geoder101.MoqProxy/)
-
 ```bash
 dotnet add package geoder101.MoqProxy
 ```
+
+### Microsoft Dependency Injection Integration
+
+For ASP.NET Core and Microsoft.Extensions.DependencyInjection scenarios, install the integration package:
+
+[![NuGet](https://img.shields.io/nuget/v/geoder101.MoqProxy.DependencyInjection.Microsoft.svg)](https://www.nuget.org/packages/geoder101.MoqProxy.DependencyInjection.Microsoft/)
+
+```bash
+dotnet add package geoder101.MoqProxy.DependencyInjection.Microsoft
+```
+
+This package allows you to wrap services registered in your DI container with Moq proxies, making it easy to verify calls and spy on real implementations in integration tests. See the [package README](src/MoqProxy.DependencyInjection.Microsoft/README.md) for details.
 
 ## Quick Start
 
@@ -70,6 +82,7 @@ mock.Verify(m => m.DoSomething(), Times.Once);
 ## Features
 
 ### ✅ Properties
+
 - Read-only properties
 - Write-only properties
 - Read-write properties
@@ -78,6 +91,7 @@ mock.Verify(m => m.DoSomething(), Times.Once);
 - **State synchronization** - changes to mock properties are reflected in the implementation and vice versa
 
 ### ✅ Methods
+
 - Void methods
 - Methods with return values
 - Methods with 0-4+ parameters
@@ -87,12 +101,14 @@ mock.Verify(m => m.DoSomething(), Times.Once);
 - Various return types (primitives, objects, collections, etc.)
 
 ### ✅ Indexers
+
 - Single-parameter indexers (`this[int index]`)
 - Multi-parameter indexers (`this[int x, int y]`)
 - Read-only indexers
 - Write-only indexers (limited support due to Moq constraints)
 
 ### ✅ Advanced Features
+
 - **Selective override** - Override specific behaviors while keeping others proxied
 - **Mock reset** - Call `mock.Reset()` then `SetupAsProxy()` again to restore proxying
 - **Multiple instances** - Proxy multiple implementations with different mocks
@@ -310,6 +326,7 @@ MoqProxy uses a sophisticated approach to enable proxy mocking:
 4. **Sentinel Pattern**: Uses a special `NullReturnValue` sentinel to detect when no explicit setup was matched, triggering fallback to the real implementation
 
 The library handles complex scenarios including:
+
 - Method overloads with different signatures
 - Generic methods with type inference
 - Multi-parameter indexers
