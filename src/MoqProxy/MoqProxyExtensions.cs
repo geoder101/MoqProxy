@@ -140,7 +140,7 @@ public static class MoqProxyExtensions
         // Use reflection to call the generic helper - need to find the right overload based on parameter count
         var helperMethod = typeof(MoqProxyExtensions)
             .GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
-            .Where(m => m.Name == nameof(SetupIndexerTyped) && m.IsGenericMethodDefinition)
+            .Where(m => m is { Name: nameof(SetupIndexerTyped), IsGenericMethodDefinition: true })
             .FirstOrDefault(m => m.GetGenericArguments().Length == allTypes.Length + 1); // +1 for T
 
         if (helperMethod == null)
@@ -202,10 +202,10 @@ public static class MoqProxyExtensions
         var paramExpr = Expression.Parameter(typeof(T), "m");
 
         var indexArgExprs = indexTypes
-            .Select(indexType =>
+            .Select(Expression (indexType) =>
             {
                 var isAnyMethod = OpenGenericMockItIsAnyMethod.MakeGenericMethod(indexType);
-                return (Expression)Expression.Call(isAnyMethod);
+                return Expression.Call(isAnyMethod);
             })
             .ToArray();
 
@@ -216,16 +216,20 @@ public static class MoqProxyExtensions
         var lambdaExpr = Expression.Lambda(funcType, indexerAccessExpr, paramExpr);
 
         // Call SetupGet
-        var setupGetMethod = typeof(Mock<T>)
-            .GetMethods()
-            .First(m => m.Name == nameof(Mock<T>.SetupGet) && m.IsGenericMethodDefinition)
-            .MakeGenericMethod(typeof(TProp));
+        var setupGetMethod =
+            typeof(Mock<T>)
+                .GetMethods()
+                .First(m => m is { Name: nameof(Mock<object>.SetupGet), IsGenericMethodDefinition: true })
+                .MakeGenericMethod(typeof(TProp));
 
         var setup = setupGetMethod.Invoke(mock, [lambdaExpr])!;
 
         // Build Returns delegate that takes index parameters and returns TProp
         var returnsDelegateType = Expression.GetFuncType(indexTypes.Concat([typeof(TProp)]).ToArray());
-        var indexParamExprs = indexTypes.Select((t, i) => Expression.Parameter(t, $"idx{i}")).ToArray();
+        var indexParamExprs =
+            indexTypes
+                .Select((t, i) => Expression.Parameter(t, $"idx{i + 1}"))
+                .ToArray();
 
         var indexArgsArrayExpr = Expression.NewArrayInit(
             typeof(object),
@@ -242,18 +246,20 @@ public static class MoqProxyExtensions
         var returnsDelegate = returnsLambda.Compile();
 
         // Call Returns on setup
-        var returnsMethod = setup.GetType()
-            .GetMethods()
-            .FirstOrDefault(m =>
-            {
-                if (m.Name != "Returns")
+        var returnsMethod =
+            setup
+                .GetType()
+                .GetMethods()
+                .FirstOrDefault(m =>
                 {
-                    return false;
-                }
+                    if (m.Name != nameof(ISetupGetter<object, object>.Returns))
+                    {
+                        return false;
+                    }
 
-                var mParams = m.GetParameters();
-                return mParams.Length == 1 && mParams[0].ParameterType.IsInstanceOfType(returnsDelegate);
-            });
+                    var mParams = m.GetParameters();
+                    return mParams.Length == 1 && mParams[0].ParameterType.IsInstanceOfType(returnsDelegate);
+                });
 
         returnsMethod?.Invoke(setup, [returnsDelegate]);
     }
@@ -274,10 +280,10 @@ public static class MoqProxyExtensions
         var paramExpr = Expression.Parameter(typeof(T), "m");
 
         var indexArgExprs = indexTypes
-            .Select(indexType =>
+            .Select(Expression (indexType) =>
             {
                 var isAnyMethod = OpenGenericMockItIsAnyMethod.MakeGenericMethod(indexType);
-                return (Expression)Expression.Call(isAnyMethod);
+                return Expression.Call(isAnyMethod);
             })
             .ToArray();
 
@@ -288,12 +294,21 @@ public static class MoqProxyExtensions
         var lambdaExpr = Expression.Lambda(funcType, indexerAccessExpr, paramExpr);
 
         // Call the obsolete SetupSet<TProperty> extension method
-        var setupSetMethod = typeof(Mock<T>)
-            .GetMethods()
-            .FirstOrDefault(m => m.Name == "SetupSet" && m.GetParameters().Length == 1
-                                                      && m.GetParameters()[0].ParameterType.IsGenericType
-                                                      && m.GetParameters()[0].ParameterType
-                                                          .GetGenericTypeDefinition() == typeof(Expression<>));
+        var setupSetMethod =
+            typeof(Mock<T>)
+                .GetMethods()
+                .FirstOrDefault(m =>
+                {
+                    if (m.Name != nameof(Mock<object>.SetupSet))
+                    {
+                        return false;
+                    }
+
+                    var mParams = m.GetParameters();
+
+                    return mParams.Length == 1
+                           && mParams[0].ParameterType.GetGenericTypeDefinition() == typeof(Expression<>);
+                });
 
         if (setupSetMethod == null)
         {
@@ -307,16 +322,19 @@ public static class MoqProxyExtensions
         var callbackActionType = Expression.GetActionType(callbackTypes);
         var callbackParamExprs = callbackTypes.Select((t, i) =>
             i < indexTypes.Length
-                ? Expression.Parameter(t, $"idx{i}")
+                ? Expression.Parameter(t, $"idx{i + 1}")
                 : Expression.Parameter(t, "value")).ToArray();
 
         var indexArgsArrayExpr = Expression.NewArrayInit(
             typeof(object),
-            callbackParamExprs.Take(indexTypes.Length).Select(p => Expression.Convert(p, typeof(object))));
+            callbackParamExprs
+                .Take(indexTypes.Length)
+                .Select(p => Expression.Convert(p, typeof(object))));
 
         var setValueExpr = Expression.Call(
             Expression.Constant(prop),
-            typeof(PropertyInfo).GetMethod(nameof(PropertyInfo.SetValue),
+            typeof(PropertyInfo).GetMethod(
+                nameof(PropertyInfo.SetValue),
                 [typeof(object), typeof(object), typeof(object[])])!,
             Expression.Constant(impl),
             Expression.Convert(callbackParamExprs.Last(), typeof(object)),
@@ -326,18 +344,22 @@ public static class MoqProxyExtensions
         var callbackDelegate = callbackLambda.Compile();
 
         // Call Callback on setup
-        var callbackMethod = setup.GetType()
-            .GetMethods()
-            .FirstOrDefault(m =>
-            {
-                if (m.Name != "Callback")
+        var callbackMethod =
+            setup
+                .GetType()
+                .GetMethods()
+                .FirstOrDefault(m =>
                 {
-                    return false;
-                }
+                    if (m.Name != nameof(ISetupSetter<object, object>.Callback))
+                    {
+                        return false;
+                    }
 
-                var mParams = m.GetParameters();
-                return mParams.Length == 1 && mParams[0].ParameterType.IsInstanceOfType(callbackDelegate);
-            });
+                    var mParams = m.GetParameters();
+
+                    return mParams.Length == 1
+                           && mParams[0].ParameterType.IsInstanceOfType(callbackDelegate);
+                });
 
         callbackMethod?.Invoke(setup, [callbackDelegate]);
     }
@@ -709,7 +731,9 @@ public static class MoqProxyExtensions
             Expression.GetFuncType(paramTypes.Concat([returnType]).ToArray());
 
         var paramExprs =
-            paramTypes.Select((t, i) => Expression.Parameter(t, $"a{i}")).ToArray();
+            paramTypes
+                .Select((t, i) => Expression.Parameter(t, $"a{i + 1}"))
+                .ToArray();
 
         if (paramTypes.Length == 0)
         {
