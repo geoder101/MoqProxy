@@ -339,6 +339,10 @@ The library handles complex scenarios including:
 - Moq 4.20.72 or later
 - Castle.Core (dependency of Moq)
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.

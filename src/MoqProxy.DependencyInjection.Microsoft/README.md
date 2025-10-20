@@ -221,6 +221,10 @@ public static IServiceCollection AddMoqProxy<TService>(
 - [MoqProxy](https://github.com/geoder101/MoqProxy) - The core proxy pattern extension for Moq
 - [Moq](https://github.com/devlooped/moq) - The popular .NET mocking library
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.txt](../../LICENSE.txt) file for details.
