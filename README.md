@@ -351,3 +351,10 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 - [Moq](https://github.com/devlooped/moq) - The mocking library this extends
 - [Castle.DynamicProxy](https://www.castleproject.org/projects/dynamicproxy/) - Used by Moq for proxy generation
+
+---
+
+### Co-authored with Artificial Intelligence
+
+This repository is part of an ongoing exploration into human-AI co-creation.  
+The code, comments, and structure emerged through dialogue between human intent and LLM reasoning — reviewed, refined, and grounded in human understanding.

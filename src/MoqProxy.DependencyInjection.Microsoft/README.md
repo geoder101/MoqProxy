@@ -228,3 +228,10 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.txt](../../LICENSE.txt) file for details.
+
+---
+
+### Co-authored with Artificial Intelligence
+
+This repository is part of an ongoing exploration into human-AI co-creation.  
+The code, comments, and structure emerged through dialogue between human intent and LLM reasoning — reviewed, refined, and grounded in human understanding.
