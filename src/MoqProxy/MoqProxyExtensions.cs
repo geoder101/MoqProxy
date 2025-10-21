@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 George Dernikos <geoder101@gmail.com>
 
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using Castle.DynamicProxy;
@@ -530,38 +531,6 @@ public static class MoqProxyExtensions
         }
     }
 
-    private sealed class NullReturnValue
-    {
-        public static readonly NullReturnValue Instance = new();
-
-        private NullReturnValue()
-        {
-        }
-
-        public static bool operator ==(NullReturnValue? left, NullReturnValue? right)
-            => ReferenceEquals(left, right) || (left is not null && right is not null);
-
-        public static bool operator !=(NullReturnValue? left, NullReturnValue? right)
-            => !(left == right);
-
-        public static bool operator ==(NullReturnValue? left, object? right)
-            => right is null || (left is not null && ReferenceEquals(left, right));
-
-        public static bool operator !=(NullReturnValue? left, object? right)
-            => !(left == right);
-
-        public static bool operator ==(object? left, NullReturnValue? right)
-            => left is null || (right is not null && ReferenceEquals(left, right));
-
-        public static bool operator !=(object? left, NullReturnValue? right)
-            => !(left == right);
-
-        public override bool Equals(object? obj)
-            => obj is null or NullReturnValue;
-
-        public override int GetHashCode() => 0;
-    }
-
     private static void SetupMethod<T>(
         Mock<T> mock,
         T impl,
@@ -571,14 +540,24 @@ public static class MoqProxyExtensions
         var isVoid = method.ReturnType == typeof(void);
         var isGeneric = method.IsGenericMethod;
 
+        // For generic methods, construct the concrete method first before processing parameters
+        if (isGeneric)
+        {
+            if (!method.TryEraseGenericParameters(out var concreteMethod))
+            {
+                // Can't satisfy generic parameter constraints with the chosen types -> skip setup
+                return;
+            }
+
+            method = concreteMethod;
+        }
+
         var methodParams = method.GetParameters();
 
         var methodParamTypes =
             methodParams
                 .Select(p => p.ParameterType)
-                .Select(t =>
-                    // Erase generic types by substituting with 'object'
-                    t.IsGenericMethodParameter ? typeof(object) : t)
+                .Select(t => t.EraseGenericParameters())
                 .ToArray();
 
         // Build the expression tree for mock.Setup(m => m.Method(It.IsAny<T1>(), It.IsAny<T2>(), ...))
@@ -589,16 +568,11 @@ public static class MoqProxyExtensions
             methodParamTypes
                 .Select(Expression (paramType) =>
                 {
-                    paramType = paramType.IsGenericMethodParameter ? typeof(object) : paramType;
+                    paramType = paramType.EraseGenericParameters();
                     var closedGenericMockItIsAnyMethod = OpenGenericMockItIsAnyMethod.MakeGenericMethod(paramType);
                     return Expression.Call(closedGenericMockItIsAnyMethod);
                 })
                 .ToArray();
-
-        if (isGeneric)
-        {
-            method = method.MakeGenericMethod(methodParamTypes);
-        }
 
         var methodCallExpr = Expression.Call(methodCallParamExpr, method, methodParamExprs);
 
@@ -638,8 +612,10 @@ public static class MoqProxyExtensions
         {
             // For returning methods: mock.Setup(m => m.Method(...)).Returns(...)
 
-            // Erase generic return type by substituting with 'object'
-            var returnType = isGeneric ? typeof(object) : method.ReturnType;
+            var returnType =
+                isGeneric && !method.ReturnType.IsValueType
+                    ? typeof(object)
+                    : method.ReturnType;
 
             var funcType = Expression.GetFuncType(typeof(T), returnType);
 
@@ -768,12 +744,167 @@ public static class MoqProxyExtensions
         }
     }
 
+    /// <summary>
+    /// Replace any open generic parameters in a <see cref="Type"/> with <see cref="object"/>.
+    /// This produces an "erased" type that can be used when building reflection-based
+    /// expressions or constructing closed generic types for mocks. The method:
+    /// - maps generic type parameters to <see cref="object"/>
+    /// - preserves arrays, pointers and by-ref shapes while erasing their element types
+    /// - rebuilds generic types using erased type arguments
+    /// </summary>
+    private static Type EraseGenericParameters(this Type type)
+    {
+        // If the type itself is a generic parameter (e.g. T) use object.
+        if (type.IsGenericParameter
+            || type.IsGenericMethodParameter)
+        {
+            return typeof(object);
+        }
+
+        // Handle arrays: erase the element type then re-create the array with the original rank.
+        if (type.IsArray)
+        {
+            var elem = type.GetElementType()!.EraseGenericParameters();
+            var rank = type.GetArrayRank();
+            // Use MakeArrayType() for single-dimensional zero-based arrays, MakeArrayType(rank) for multi-dimensional
+            return rank == 1 ? elem.MakeArrayType() : elem.MakeArrayType(rank);
+        }
+
+        // Handle by-ref types (ref/out): erase the element and return a by-ref of it.
+        if (type.IsByRef)
+        {
+            var elem = type.GetElementType()!.EraseGenericParameters();
+            return elem.MakeByRefType();
+        }
+
+        // Handle pointers similarly.
+        if (type.IsPointer)
+        {
+            var elem = type.GetElementType()!.EraseGenericParameters();
+            return elem.MakePointerType();
+        }
+
+        // Non-generic types are returned as-is.
+        if (!type.IsGenericType)
+        {
+            return type;
+        }
+
+        var def = type.GetGenericTypeDefinition();
+
+        // Special case: Nullable<T> where T is a generic parameter
+        // Nullable<T> has a struct constraint, so we can't make Nullable<object>
+        // Check this BEFORE erasing the generic arguments to avoid attempting invalid construction
+        if (def == typeof(Nullable<>))
+        {
+            var arg = type.GetGenericArguments()[0];
+            if (arg.IsGenericParameter || arg.IsGenericMethodParameter)
+            {
+                return typeof(object);
+            }
+        }
+
+        // For generic types, erase each generic argument and construct the generic type definition
+        // with the erased arguments.
+        var newArgs = type.GetGenericArguments()
+            .Select(a => a.EraseGenericParameters())
+            .ToArray();
+
+        // After erasure, check if we would create Nullable<object>
+        if (def == typeof(Nullable<>) && newArgs.Length == 1 && newArgs[0] == typeof(object))
+        {
+            return typeof(object);
+        }
+
+        // Try to construct the generic type, but if it fails due to constraint violations,
+        // just return object as a fallback
+        try
+        {
+            return def.MakeGenericType(newArgs);
+        }
+        catch (ArgumentException)
+        {
+            // Constraints prevent construction (e.g., other constrained generics)
+            return typeof(object);
+        }
+    }
+
+    /// <summary>
+    /// Attempt to construct a concrete MethodInfo from a generic method definition by substituting
+    /// all method generic parameters with <see cref="object"/>. Returns false if the method is
+    /// not a generic method definition or if generic parameter constraints prevent construction.
+    /// This is used by the proxy setup to try to create a usable non-generic method for expression
+    /// construction; failure is expected for some generic methods and is handled by skipping setup.
+    /// </summary>
+    private static bool TryEraseGenericParameters(
+        this MethodInfo method,
+        [NotNullWhen(true)] out MethodInfo? concreteMethod)
+    {
+        // Build generic type arguments: replace any method/type generic parameters with `object`.
+        var genericParams = method.GetGenericArguments();
+        var genericTypeArgs = genericParams
+            .Select(gp =>
+                gp.IsGenericParameter || gp.IsGenericMethodParameter
+                    ? typeof(object)
+                    : gp)
+            .ToArray();
+
+        // Try to construct the generic method. If constraints prevent construction, skip this method.
+        try
+        {
+            if (method.IsGenericMethodDefinition)
+            {
+                concreteMethod = method.MakeGenericMethod(genericTypeArgs);
+                return true;
+            }
+
+            concreteMethod = null;
+            return false;
+        }
+        catch (ArgumentException)
+        {
+            // Can't satisfy generic parameter constraints with the chosen types -> skip setup
+            concreteMethod = null;
+            return false;
+        }
+    }
+
+    private sealed class NullReturnValue
+    {
+        public static readonly NullReturnValue Instance = new();
+
+        private NullReturnValue()
+        {
+        }
+
+        public static bool operator ==(NullReturnValue? left, NullReturnValue? right)
+            => ReferenceEquals(left, right) || (left is not null && right is not null);
+
+        public static bool operator !=(NullReturnValue? left, NullReturnValue? right)
+            => !(left == right);
+
+        public static bool operator ==(NullReturnValue? left, object? right)
+            => right is null || (left is not null && ReferenceEquals(left, right));
+
+        public static bool operator !=(NullReturnValue? left, object? right)
+            => !(left == right);
+
+        public static bool operator ==(object? left, NullReturnValue? right)
+            => left is null || (right is not null && ReferenceEquals(left, right));
+
+        public static bool operator !=(object? left, NullReturnValue? right)
+            => !(left == right);
+
+        public override bool Equals(object? obj)
+            => obj is null or NullReturnValue;
+
+        public override int GetHashCode() => 0;
+    }
+
     private class NullReturnValueProvider : DefaultValueProvider
     {
         protected override object GetDefaultValue(Type type, Mock mock)
-        {
-            return NullReturnValue.Instance;
-        }
+            => NullReturnValue.Instance;
     }
 
     #endregion
