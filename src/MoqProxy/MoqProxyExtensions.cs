@@ -47,6 +47,10 @@ public static class MoqProxyExtensions
 
     #region Core
 
+    /// <summary>
+    /// Cached reflection reference to the generic <see cref="SetupRegularProperty{T, TProp}"/> method.
+    /// Used to invoke the method with runtime type arguments for property setup.
+    /// </summary>
     private static readonly MethodInfo OpenGenericSetupPropMethod =
         typeof(MoqProxyExtensions)
             .GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
@@ -87,6 +91,10 @@ public static class MoqProxyExtensions
              This is an internal reflection error in the mock proxy setup.
              """);
 
+    /// <summary>
+    /// Cached reflection reference to the generic <see cref="It.IsAny{TValue}"/> method from Moq.
+    /// Used to create It.IsAny expressions for method and indexer parameter matching.
+    /// </summary>
     private static readonly MethodInfo OpenGenericMockItIsAnyMethod =
         typeof(It).GetMethod(nameof(It.IsAny))
         ?? throw new InvalidOperationException(
@@ -95,6 +103,10 @@ public static class MoqProxyExtensions
              This may indicate an incompatible version of Moq library.
              """);
 
+    /// <summary>
+    /// Cached reflection reference to the MethodInfo.Invoke method.
+    /// Used to dynamically invoke methods on the implementation instance.
+    /// </summary>
     private static readonly MethodInfo MethodInfoInvokeMethod =
         typeof(MethodInfo).GetMethod(
             nameof(MethodInfo.Invoke),
@@ -102,6 +114,13 @@ public static class MoqProxyExtensions
         ?? throw new InvalidOperationException(
             $"Failed to find method '{nameof(MethodInfo.Invoke)}' on type '{typeof(MethodInfo).FullName}'.");
 
+    /// <summary>
+    /// Sets up all public instance properties on the mock to forward to the implementation.
+    /// Distinguishes between regular properties and indexers, delegating to appropriate setup methods.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward property access to.</param>
     private static void SetupProperties<T>(
         Mock<T> mock,
         T impl)
@@ -122,6 +141,16 @@ public static class MoqProxyExtensions
         }
     }
 
+    /// <summary>
+    /// Sets up an indexer property on the mock to forward to the implementation.
+    /// Uses reflection to call the appropriate generic setup method based on the number of index parameters.
+    /// Skips indexers with by-ref or ref-like parameters which are not supported.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward indexer access to.</param>
+    /// <param name="prop">The property info representing the indexer.</param>
+    /// <param name="indexParams">The index parameters of the indexer.</param>
     private static void SetupIndexerProperty<T>(
         Mock<T> mock,
         T impl,
@@ -154,6 +183,15 @@ public static class MoqProxyExtensions
         helperMethod.Invoke(null, [mock, impl, prop]);
     }
 
+    /// <summary>
+    /// Sets up an indexer with zero parameters (edge case).
+    /// Delegates to getter and setter setup methods.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <typeparam name="TProp">The property type of the indexer.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance.</param>
+    /// <param name="prop">The property info representing the indexer.</param>
     private static void SetupIndexerTyped<T, TProp>(
         Mock<T> mock,
         T impl,
@@ -165,6 +203,16 @@ public static class MoqProxyExtensions
         SetupIndexerSetter<T, TProp>(mock, impl, prop, []);
     }
 
+    /// <summary>
+    /// Sets up an indexer with one index parameter.
+    /// Delegates to getter and setter setup methods with the appropriate type information.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <typeparam name="TIndex">The type of the index parameter.</typeparam>
+    /// <typeparam name="TProp">The property type of the indexer.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance.</param>
+    /// <param name="prop">The property info representing the indexer.</param>
     private static void SetupIndexerTyped<T, TIndex, TProp>(
         Mock<T> mock,
         T impl,
@@ -176,6 +224,17 @@ public static class MoqProxyExtensions
         SetupIndexerSetter<T, TProp>(mock, impl, prop, [typeof(TIndex)]);
     }
 
+    /// <summary>
+    /// Sets up an indexer with two index parameters.
+    /// Delegates to getter and setter setup methods with the appropriate type information.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <typeparam name="TIndex1">The type of the first index parameter.</typeparam>
+    /// <typeparam name="TIndex2">The type of the second index parameter.</typeparam>
+    /// <typeparam name="TProp">The property type of the indexer.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance.</param>
+    /// <param name="prop">The property info representing the indexer.</param>
     private static void SetupIndexerTyped<T, TIndex1, TIndex2, TProp>(
         Mock<T> mock,
         T impl,
@@ -187,6 +246,16 @@ public static class MoqProxyExtensions
         SetupIndexerSetter<T, TProp>(mock, impl, prop, [typeof(TIndex1), typeof(TIndex2)]);
     }
 
+    /// <summary>
+    /// Sets up the getter for an indexer property to forward calls to the implementation.
+    /// Builds an expression tree that matches any index parameter values and returns the value from the implementation.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <typeparam name="TProp">The property type of the indexer.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward getter calls to.</param>
+    /// <param name="prop">The property info representing the indexer.</param>
+    /// <param name="indexTypes">The types of the index parameters.</param>
     private static void SetupIndexerGetter<T, TProp>(
         Mock<T> mock,
         T impl,
@@ -265,6 +334,16 @@ public static class MoqProxyExtensions
         returnsMethod?.Invoke(setup, [returnsDelegate]);
     }
 
+    /// <summary>
+    /// Sets up the setter for an indexer property to forward calls to the implementation.
+    /// Builds an expression tree that matches any index parameter values and forwards the set value to the implementation.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <typeparam name="TProp">The property type of the indexer.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward setter calls to.</param>
+    /// <param name="prop">The property info representing the indexer.</param>
+    /// <param name="indexTypes">The types of the index parameters.</param>
     private static void SetupIndexerSetter<T, TProp>(
         Mock<T> mock,
         T impl,
@@ -365,6 +444,14 @@ public static class MoqProxyExtensions
         callbackMethod?.Invoke(setup, [callbackDelegate]);
     }
 
+    /// <summary>
+    /// Sets up a regular (non-indexer) property on the mock to forward to the implementation.
+    /// Uses reflection to invoke the generic setup method with the property's type.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward property access to.</param>
+    /// <param name="prop">The property info representing the regular property.</param>
     private static void SetupRegularProperty<T>(
         Mock<T> mock,
         T impl,
@@ -377,6 +464,15 @@ public static class MoqProxyExtensions
         closedGenericSetupPropMethod.Invoke(null, [mock, impl, prop]);
     }
 
+    /// <summary>
+    /// Sets up a regular (non-indexer) property with strongly-typed getter and setter forwarding.
+    /// Delegates to specialized getter and setter setup methods.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <typeparam name="TProp">The property type.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward property access to.</param>
+    /// <param name="prop">The property info representing the regular property.</param>
     private static void SetupRegularProperty<T, TProp>(
         Mock<T> mock,
         T impl,
@@ -387,6 +483,15 @@ public static class MoqProxyExtensions
         SetupRegularPropertySetter<T, TProp>(mock, impl, prop);
     }
 
+    /// <summary>
+    /// Sets up the getter for a regular property to forward calls to the implementation.
+    /// Creates a strongly-typed expression that retrieves the property value from the implementation.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <typeparam name="TProp">The property type.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward getter calls to.</param>
+    /// <param name="prop">The property info representing the property.</param>
     private static void SetupRegularPropertyGetter<T, TProp>(
         Mock<T> mock,
         T impl,
@@ -406,6 +511,15 @@ public static class MoqProxyExtensions
             .Returns(() => (TProp)prop.GetValue(impl)!);
     }
 
+    /// <summary>
+    /// Sets up the setter for a regular property to forward calls to the implementation.
+    /// Creates a callback that applies the set value to the implementation's property.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <typeparam name="TProp">The property type.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward setter calls to.</param>
+    /// <param name="prop">The property info representing the property.</param>
     private static void SetupRegularPropertySetter<T, TProp>(
         Mock<T> mock,
         T impl,
@@ -421,6 +535,14 @@ public static class MoqProxyExtensions
             .Callback<TProp>(value => prop.SetValue(impl, value));
     }
 
+    /// <summary>
+    /// Sets up all public instance methods on the mock to forward to the implementation.
+    /// Skips special methods (property accessors, operators), Object methods, generic methods with unresolved type parameters,
+    /// and methods with by-ref or ref-like parameters which are not supported by this proxy.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward method calls to.</param>
     private static void SetupMethods<T>(
         Mock<T> mock,
         T impl)
@@ -444,6 +566,14 @@ public static class MoqProxyExtensions
         }
     }
 
+    /// <summary>
+    /// Injects a custom Castle.DynamicProxy interceptor into the mock to handle generic methods that cannot be set up via expression trees.
+    /// This interceptor acts as a fallback that forwards unmatched method calls to the real implementation.
+    /// Uses reflection to access Castle.DynamicProxy's internal interceptor chain.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward calls to.</param>
     private static void SetupMethodFallbackInterceptors<T>(
         Mock<T> mock,
         T impl)
@@ -475,10 +605,21 @@ public static class MoqProxyExtensions
         interceptorsField.SetValue(mock.Object, newInterceptors);
     }
 
+    /// <summary>
+    /// Castle.DynamicProxy interceptor that forwards method calls to the real implementation when no Moq setup matches.
+    /// Uses a sentinel value to detect when Moq hasn't matched any setup, then invokes the method on the real implementation.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <param name="impl">The implementation instance to forward calls to.</param>
     private class FallbackMethodProxyInterceptor<T>(T impl)
         : IInterceptor
         where T : class
     {
+        /// <summary>
+        /// Intercepts method calls on the mock proxy, checking if a Moq setup was matched.
+        /// If no setup matched (indicated by the sentinel return value), forwards the call to the real implementation.
+        /// </summary>
+        /// <param name="invocation">The method invocation details from Castle.DynamicProxy.</param>
         public void Intercept(IInvocation invocation)
         {
             var method = invocation.Method;
@@ -531,6 +672,15 @@ public static class MoqProxyExtensions
         }
     }
 
+    /// <summary>
+    /// Sets up a single method on the mock to forward calls to the implementation.
+    /// Handles both void and non-void methods, creating appropriate Setup/Callback or Setup/Returns configurations.
+    /// For generic methods, attempts to erase generic parameters to create a concrete method definition.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <param name="mock">The mock instance to configure.</param>
+    /// <param name="impl">The implementation instance to forward method calls to.</param>
+    /// <param name="method">The method info to set up.</param>
     private static void SetupMethod<T>(
         Mock<T> mock,
         T impl,
@@ -666,6 +816,14 @@ public static class MoqProxyExtensions
         }
     }
 
+    /// <summary>
+    /// Creates a callback delegate that invokes a method on the implementation instance.
+    /// Builds an expression tree that packages method parameters into an array and calls the method via reflection.
+    /// </summary>
+    /// <param name="impl">The implementation instance to invoke the method on.</param>
+    /// <param name="method">The method to invoke.</param>
+    /// <param name="paramTypes">The parameter types of the method.</param>
+    /// <returns>A delegate that can be used with Moq's Callback method.</returns>
     private static Delegate CreateCallbackDelegate(
         object impl,
         MethodInfo method,
@@ -695,6 +853,14 @@ public static class MoqProxyExtensions
         return lambdaExpr.Compile();
     }
 
+    /// <summary>
+    /// Creates a returns delegate that invokes a method on the implementation instance and returns its result.
+    /// Builds an expression tree that packages method parameters into an array, calls the method via reflection, and returns the result.
+    /// </summary>
+    /// <param name="impl">The implementation instance to invoke the method on.</param>
+    /// <param name="method">The method to invoke.</param>
+    /// <param name="paramTypes">The parameter types of the method.</param>
+    /// <returns>A delegate that can be used with Moq's Returns method.</returns>
     private static Delegate CreateReturnsDelegate(
         object impl,
         MethodInfo method,
@@ -745,13 +911,22 @@ public static class MoqProxyExtensions
     }
 
     /// <summary>
-    /// Replace any open generic parameters in a <see cref="Type"/> with <see cref="object"/>.
+    /// Replaces any open generic parameters in a <see cref="Type"/> with <see cref="object"/>.
     /// This produces an "erased" type that can be used when building reflection-based
-    /// expressions or constructing closed generic types for mocks. The method:
-    /// - maps generic type parameters to <see cref="object"/>
-    /// - preserves arrays, pointers and by-ref shapes while erasing their element types
-    /// - rebuilds generic types using erased type arguments
+    /// expressions or constructing closed generic types for mocks.
     /// </summary>
+    /// <param name="type">The type to erase generic parameters from.</param>
+    /// <returns>
+    /// A type with all generic parameters replaced by <see cref="object"/>, preserving array, pointer, and by-ref shapes.
+    /// </returns>
+    /// <remarks>
+    /// The method:
+    /// <list type="bullet">
+    /// <item><description>Maps generic type parameters to <see cref="object"/></description></item>
+    /// <item><description>Preserves arrays, pointers and by-ref shapes while erasing their element types</description></item>
+    /// <item><description>Rebuilds generic types using erased type arguments</description></item>
+    /// </list>
+    /// </remarks>
     private static Type EraseGenericParameters(this Type type)
     {
         // If the type itself is a generic parameter (e.g. T) use object.
@@ -830,12 +1005,20 @@ public static class MoqProxyExtensions
     }
 
     /// <summary>
-    /// Attempt to construct a concrete MethodInfo from a generic method definition by substituting
-    /// all method generic parameters with <see cref="object"/>. Returns false if the method is
-    /// not a generic method definition or if generic parameter constraints prevent construction.
-    /// This is used by the proxy setup to try to create a usable non-generic method for expression
-    /// construction; failure is expected for some generic methods and is handled by skipping setup.
+    /// Attempts to construct a concrete <see cref="MethodInfo"/> from a generic method definition by substituting
+    /// all method generic parameters with <see cref="object"/>.
     /// </summary>
+    /// <param name="method">The method to attempt to make concrete.</param>
+    /// <param name="concreteMethod">When this method returns true, contains the concrete method; otherwise, null.</param>
+    /// <returns>
+    /// <c>true</c> if the method is a generic method definition and a concrete method could be constructed;
+    /// otherwise, <c>false</c>.
+    /// </returns>
+    /// <remarks>
+    /// Returns false if the method is not a generic method definition or if generic parameter constraints
+    /// prevent construction. This is used by the proxy setup to try to create a usable non-generic method
+    /// for expression construction; failure is expected for some generic methods and is handled by skipping setup.
+    /// </remarks>
     private static bool TryEraseGenericParameters(
         this MethodInfo method,
         [NotNullWhen(true)] out MethodInfo? concreteMethod)
@@ -869,8 +1052,16 @@ public static class MoqProxyExtensions
         }
     }
 
+    /// <summary>
+    /// Sentinel type used to detect when Moq has not matched any setup for a method call.
+    /// This singleton value is returned by the custom <see cref="NullReturnValueProvider"/> and checked
+    /// by the <see cref="FallbackMethodProxyInterceptor{T}"/> to determine whether to forward the call to the real implementation.
+    /// </summary>
     private sealed class NullReturnValue
     {
+        /// <summary>
+        /// Gets the singleton instance of <see cref="NullReturnValue"/>.
+        /// </summary>
         public static readonly NullReturnValue Instance = new();
 
         private NullReturnValue()
@@ -901,8 +1092,19 @@ public static class MoqProxyExtensions
         public override int GetHashCode() => 0;
     }
 
+    /// <summary>
+    /// Custom Moq <see cref="DefaultValueProvider"/> that returns the <see cref="NullReturnValue"/> sentinel
+    /// for all unmatched method calls. This allows the fallback interceptor to detect when no setup was matched
+    /// and forward the call to the real implementation.
+    /// </summary>
     private class NullReturnValueProvider : DefaultValueProvider
     {
+        /// <summary>
+        /// Returns the <see cref="NullReturnValue.Instance"/> sentinel for any type.
+        /// </summary>
+        /// <param name="type">The return type of the method (unused).</param>
+        /// <param name="mock">The mock instance (unused).</param>
+        /// <returns>The <see cref="NullReturnValue.Instance"/> sentinel.</returns>
         protected override object GetDefaultValue(Type type, Mock mock)
             => NullReturnValue.Instance;
     }
