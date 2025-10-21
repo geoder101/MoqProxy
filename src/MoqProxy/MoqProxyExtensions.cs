@@ -25,10 +25,10 @@ public static class MoqProxyExtensions
     /// <remarks>
     /// This method configures the mock to:
     /// <list type="bullet">
+    /// <item><description>Inject a fallback interceptor to forward unmatched calls to the implementation</description></item>
     /// <item><description>Forward property getters and setters to the implementation</description></item>
     /// <item><description>Forward method calls to the implementation</description></item>
     /// <item><description>Support indexer properties</description></item>
-    /// <item><description>Handle generic methods through fallback interceptors</description></item>
     /// </list>
     /// After calling this method, you can still override specific behaviors using standard Moq Setup methods.
     /// </remarks>
@@ -40,9 +40,14 @@ public static class MoqProxyExtensions
         // Set up custom default value provider to return NullReturnValue sentinel
         mock.DefaultValueProvider = new NullReturnValueProvider();
 
+        // Inject the fallback interceptor first - it runs before all other setups
+        if (!TrySetupInterceptor(mock, impl))
+        {
+            return;
+        }
+
         SetupProperties(mock, impl);
         SetupMethods(mock, impl);
-        SetupMethodFallbackInterceptors(mock, impl);
     }
 
     #region Core
@@ -567,29 +572,25 @@ public static class MoqProxyExtensions
     }
 
     /// <summary>
-    /// Injects a custom Castle.DynamicProxy interceptor into the mock to handle generic methods that cannot be set up via expression trees.
-    /// This interceptor acts as a fallback that forwards unmatched method calls to the real implementation.
-    /// Uses reflection to access Castle.DynamicProxy's internal interceptor chain.
+    /// Attempts to inject a custom interceptor into the mock's proxy that forwards unmatched calls to the implementation.
+    /// This interceptor runs before all Moq setups, detecting when no setup was matched and forwarding the call to the real implementation.
     /// </summary>
     /// <typeparam name="T">The type being mocked.</typeparam>
     /// <param name="mock">The mock instance to configure.</param>
     /// <param name="impl">The implementation instance to forward calls to.</param>
-    private static void SetupMethodFallbackInterceptors<T>(
+    /// <remarks>
+    /// The interceptor is only added once. If it's already present, this method does nothing.
+    /// Uses Castle.DynamicProxy's internal __interceptors field to inject the custom interceptor at the beginning of the chain.
+    /// </remarks>
+    private static bool TrySetupInterceptor<T>(
         Mock<T> mock,
         T impl)
         where T : class
     {
-        // Expression-tree setups in Moq cannot represent certain generic methods whose signatures depend on invariant type parameters.
-        // Castle.DynamicProxy (used by Moq) can still intercept those generic calls at runtime.
-        // We inject a custom interceptor into the generated proxy (via reflection) to handle forwarding generic invocations to the real implementation.
-
         if (mock.Object is not IProxyTargetAccessor)
         {
-            return;
+            return false;
         }
-
-        // Create our custom interceptor for generic methods
-        var fallbackProxyInterceptor = new FallbackMethodProxyInterceptor<T>(impl);
 
         // Use reflection to access the __interceptors field (Castle DynamicProxy implementation detail)
         var proxyType = mock.Object.GetType();
@@ -597,12 +598,25 @@ public static class MoqProxyExtensions
 
         if (interceptorsField == null)
         {
-            return;
+            return false;
         }
 
         var currentInterceptors = (IInterceptor[])interceptorsField.GetValue(mock.Object)!;
+
+        // Check if our interceptor is already added - skip if it is
+        if (currentInterceptors.Any(i => i is FallbackMethodProxyInterceptor<T>))
+        {
+            return false;
+        }
+
+        // Create our custom interceptor
+        var fallbackProxyInterceptor = new FallbackMethodProxyInterceptor<T>(impl);
+
+        // Prepend our interceptor to the beginning of the chain so it runs first
         var newInterceptors = new[] { fallbackProxyInterceptor }.Concat(currentInterceptors).ToArray();
         interceptorsField.SetValue(mock.Object, newInterceptors);
+
+        return true;
     }
 
     /// <summary>
@@ -1094,7 +1108,7 @@ public static class MoqProxyExtensions
 
     /// <summary>
     /// Custom Moq <see cref="DefaultValueProvider"/> that returns the <see cref="NullReturnValue"/> sentinel
-    /// for all unmatched method calls. This allows the fallback interceptor to detect when no setup was matched
+    /// for all unmatched method calls. This allows the interceptor to detect when no setup was matched
     /// and forward the call to the real implementation.
     /// </summary>
     private class NullReturnValueProvider : DefaultValueProvider

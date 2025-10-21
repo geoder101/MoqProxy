@@ -26,6 +26,6 @@ public class AsyncProxyTests
         /* Assert */
 
         Assert.Equal(8, result);
-        Assert.Equal(new[] { "Method1Async", "Method2Async(5)", "Method3Async(7)" }, impl.CallLog);
+        Assert.Equal(new[] { "Method1Async", "Method2Async(5)", "Method3Async(7) -> 8" }, impl.CallLog);
     }
 }

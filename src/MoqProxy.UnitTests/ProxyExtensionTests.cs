@@ -101,7 +101,7 @@ public class ProxyExtensionTests
         /* Assert */
 
         Assert.Equal(8, result);
-        Assert.Equal(["Method3(7)"], impl.CallLog);
+        Assert.Equal(["Method3(7) -> 8"], impl.CallLog);
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public class ProxyExtensionTests
         /* Assert */
 
         Assert.Equal(12, result);
-        Assert.Equal(["Method3Async(11)"], impl.CallLog);
+        Assert.Equal(["Method3Async(11) -> 12"], impl.CallLog);
     }
 
     [Fact]
@@ -302,7 +302,7 @@ public class ProxyExtensionTests
         /* Assert */
 
         Assert.Equal(8, result); // Back to forwarding behavior
-        Assert.Equal(["Method3(7)"], impl.CallLog);
+        Assert.Equal(["Method3(7) -> 8"], impl.CallLog);
     }
 
     [Fact]
@@ -351,7 +351,7 @@ public class ProxyExtensionTests
         mock.Verify(m => m.Method2(5), Times.Once);
         mock.Verify(m => m.Method3(7), Times.Once);
         mock.Verify(m => m.Method3(10), Times.Once);
-        Assert.Equal(["Method1", "Method2(5)", "Method3(7)", "Method1", "Method3(10)"], impl.CallLog);
+        Assert.Equal(["Method1", "Method2(5)", "Method3(7) -> 8", "Method1", "Method3(10) -> 11"], impl.CallLog);
     }
 
     [Fact]

@@ -35,7 +35,7 @@ public class Implementation : IImplementation
 
     public int Method3(int x)
     {
-        CallLog.Add($"{nameof(Method3)}({x})");
+        CallLog.Add($"{nameof(Method3)}({x}) -> {x + 1}");
         return x + 1;
     }
 
@@ -54,7 +54,7 @@ public class Implementation : IImplementation
     public async Task<int> Method3Async(int x)
     {
         await Task.CompletedTask;
-        CallLog.Add($"{nameof(Method3Async)}({x})");
+        CallLog.Add($"{nameof(Method3Async)}({x}) -> {x + 1}");
         return x + 1;
     }
 
