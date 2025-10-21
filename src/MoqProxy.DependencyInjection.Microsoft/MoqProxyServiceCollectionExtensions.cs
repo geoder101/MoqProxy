@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2025 George Dernikos
+// Copyright (c) 2025 George Dernikos <geoder101@gmail.com>
 
 // ReSharper disable CheckNamespace
 
