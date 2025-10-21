@@ -37,9 +37,6 @@ public static class MoqProxyExtensions
         T impl)
         where T : class
     {
-        // Set up custom default value provider to return NullReturnValue sentinel
-        mock.DefaultValueProvider = new NullReturnValueProvider();
-
         // Inject the fallback interceptor first - it runs before all other setups
         if (!TrySetupInterceptor(mock, impl))
         {
@@ -616,6 +613,9 @@ public static class MoqProxyExtensions
         var newInterceptors = new[] { fallbackProxyInterceptor }.Concat(currentInterceptors).ToArray();
         interceptorsField.SetValue(mock.Object, newInterceptors);
 
+        // Set up custom default value provider to return NullReturnValue sentinel
+        mock.DefaultValueProvider = NullReturnValueProvider.Instance;
+
         return true;
     }
 
@@ -1113,6 +1113,15 @@ public static class MoqProxyExtensions
     /// </summary>
     private class NullReturnValueProvider : DefaultValueProvider
     {
+        /// <summary>
+        /// Singleton instance of <see cref="NullReturnValueProvider"/>.
+        /// </summary>
+        public static readonly NullReturnValueProvider Instance = new();
+
+        private NullReturnValueProvider()
+        {
+        }
+
         /// <summary>
         /// Returns the <see cref="NullReturnValue.Instance"/> sentinel for any type.
         /// </summary>
