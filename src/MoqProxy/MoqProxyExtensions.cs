@@ -540,7 +540,8 @@ public static class MoqProxyExtensions
     /// <summary>
     /// Sets up all public instance methods on the mock to forward to the implementation.
     /// Skips special methods (property accessors, operators), Object methods, generic methods with unresolved type parameters,
-    /// and methods with by-ref or ref-like parameters which are not supported by this proxy.
+    /// methods with ref/out parameters (handled entirely by the interceptor), and methods with ref-like parameters (ref structs)
+    /// which are not supported by expression trees.
     /// </summary>
     /// <typeparam name="T">The type being mocked.</typeparam>
     /// <param name="mock">The mock instance to configure.</param>
@@ -553,13 +554,13 @@ public static class MoqProxyExtensions
         foreach (var method in typeof(T).GetMethods(BindingFlags.Public | BindingFlags.Instance))
         {
             // Skip some generic methods here - they're handled separately
-            // Skip methods with by-ref (ref/out) or ref-like parameters (ref struct) — not supported by this proxy
+            // Skip methods with ref/out parameters (IsByRef) — these cannot be represented in expression trees
+            // and are handled entirely by the FallbackMethodProxyInterceptor
+            // Skip methods with ref-like parameters (IsByRefLike, ref struct) — not supported by expression trees
             if (method.IsSpecialName
                 || method.DeclaringType == typeof(object)
                 || method.ReturnType.ContainsGenericParameters
-                || method.GetParameters().Any(p =>
-                    p.ParameterType.IsByRef
-                    || p.ParameterType.IsByRefLike))
+                || method.GetParameters().Any(p => p.ParameterType.IsByRef || p.ParameterType.IsByRefLike))
             {
                 continue;
             }
@@ -622,6 +623,7 @@ public static class MoqProxyExtensions
     /// <summary>
     /// Castle.DynamicProxy interceptor that forwards method calls to the real implementation when no Moq setup matches.
     /// Uses a sentinel value to detect when Moq hasn't matched any setup, then invokes the method on the real implementation.
+    /// Properly handles ref/out parameters by copying values back after invocation.
     /// </summary>
     /// <typeparam name="T">The type being mocked.</typeparam>
     /// <param name="impl">The implementation instance to forward calls to.</param>
@@ -632,11 +634,16 @@ public static class MoqProxyExtensions
         /// <summary>
         /// Intercepts method calls on the mock proxy, checking if a Moq setup was matched.
         /// If no setup matched (indicated by the sentinel return value), forwards the call to the real implementation.
+        /// Handles ref/out parameters by copying modified values back to the invocation.
         /// </summary>
         /// <param name="invocation">The method invocation details from Castle.DynamicProxy.</param>
         public void Intercept(IInvocation invocation)
         {
             var method = invocation.Method;
+            var parameters = method.GetParameters();
+
+            // Check if method has ref/out parameters
+            var hasRefOrOutParameters = parameters.Any(p => p.ParameterType.IsByRef);
 
             // Use NullReturnValue as sentinel to detect if no setup was matched
             if (method.ReturnType != typeof(void))
@@ -659,12 +666,50 @@ public static class MoqProxyExtensions
             {
                 try
                 {
+                    // Determine if we should forward to the implementation:
+                    // For methods WITH ref/out parameters:
+                    //   - Forward only if no Moq setup was matched (checked via sentinel for non-void)
+                    // For methods WITHOUT ref/out parameters:
+                    //   - Forward only if no Moq setup was matched (checked via sentinel for non-void)
+                    //   - Void methods without ref/out are handled by SetupMethod, so don't forward
+
+                    bool setupWasMatched;
                     if (method.ReturnType != typeof(void))
                     {
-                        // If ReturnValue is still NullReturnValue, it means no Setup was matched
-                        if (invocation.ReturnValue == NullReturnValue.Instance)
+                        // For non-void methods, check if setup was matched via sentinel
+                        setupWasMatched = invocation.ReturnValue != NullReturnValue.Instance;
+                    }
+                    else
+                    {
+                        // For void methods, we can't easily detect if a setup matched
+                        // But void methods with ref/out parameters are NOT set up by SetupMethod
+                        // So we should forward them if they have ref/out params
+                        setupWasMatched = !hasRefOrOutParameters;
+                    }
+
+                    var shouldForward = !setupWasMatched;
+
+                    if (shouldForward)
+                    {
+                        // Create a copy of arguments for the invocation
+                        var args = invocation.Arguments.ToArray();
+
+                        // Invoke the method on the implementation
+                        var result = method.Invoke(impl, args);
+
+                        // Copy back ref/out parameter values
+                        for (var i = 0; i < parameters.Length; i++)
                         {
-                            invocation.ReturnValue = method.Invoke(impl, invocation.Arguments);
+                            if (parameters[i].ParameterType.IsByRef)
+                            {
+                                invocation.SetArgumentValue(i, args[i]);
+                            }
+                        }
+
+                        // Set return value if not void
+                        if (method.ReturnType != typeof(void))
+                        {
+                            invocation.ReturnValue = result;
                         }
                     }
                 }

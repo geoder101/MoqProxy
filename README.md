@@ -2,7 +2,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/geoder101.MoqProxy.svg)](https://www.nuget.org/packages/geoder101.MoqProxy/)
 
-A powerful extension for [Moq](https://github.com/devlooped/moq) that enables **proxy pattern mocking** - forward calls from a mock to a real implementation while maintaining full verification capabilities.
+A powerful extension for [Moq](https://github.com/devlooped/moq) that enables **proxy pattern mocking** - forward calls
+from a mock to a real implementation while maintaining full verification capabilities.
 
 ## Why MoqProxy?
 
@@ -17,15 +18,17 @@ MoqProxy bridges the gap between full mocking and real implementations, giving y
 ## How is this different from `CallBase = true`?
 
 | Feature                      | MoqProxy (`SetupAsProxy`)                | `CallBase = true`                             |
-| ---------------------------- | ---------------------------------------- | --------------------------------------------- |
+|------------------------------|------------------------------------------|-----------------------------------------------|
 | **Works with interfaces**    | ✅ Yes - forwards to any implementation   | ❌ No - interfaces have no base implementation |
 | **Separate implementation**  | ✅ Forwards to a different instance       | ❌ Only calls the mock's own base methods      |
-| **Property synchronization** | ✅ Mock and implementation stay in sync   | ⚠️ Only if mock is the implementation          |
+| **Property synchronization** | ✅ Mock and implementation stay in sync   | ⚠️ Only if mock is the implementation         |
 | **Use case**                 | Spy on existing objects, test decorators | Partial mocking of concrete classes           |
 | **Generic method support**   | ✅ Full support via custom interceptor    | ✅ Supported                                   |
 | **Indexer support**          | ✅ 1-2 parameter indexers                 | ✅ Supported                                   |
 
-**Key Difference:** `CallBase = true` only works with **abstract or virtual members of the mocked class itself**. `SetupAsProxy` works with **interfaces** and forwards calls to a **separate implementation instance**, making it perfect for the spy pattern and testing decorators.
+**Key Difference:** `CallBase = true` only works with **abstract or virtual members of the mocked class itself**.
+`SetupAsProxy` works with **interfaces** and forwards calls to a **separate implementation instance**, making it perfect
+for the spy pattern and testing decorators.
 
 ### Example Comparison
 
@@ -57,7 +60,9 @@ For ASP.NET Core and Microsoft.Extensions.DependencyInjection scenarios, install
 dotnet add package geoder101.MoqProxy.DependencyInjection.Microsoft
 ```
 
-This package allows you to wrap services registered in your DI container with Moq proxies, making it easy to verify calls and spy on real implementations in integration tests. See the [package README](src/MoqProxy.DependencyInjection.Microsoft/README.md) for details.
+This package allows you to wrap services registered in your DI container with Moq proxies, making it easy to verify
+calls and spy on real implementations in integration tests. See
+the [package README](src/MoqProxy.DependencyInjection.Microsoft/README.md) for details.
 
 ## Quick Start
 
@@ -98,6 +103,7 @@ mock.Verify(m => m.DoSomething(), Times.Once);
 - Method overloads
 - **Generic methods** - full support including type inference
 - **Async methods** - `Task` and `Task<T>`
+- **Ref/out parameters** - automatic forwarding with verification support
 - Various return types (primitives, objects, collections, etc.)
 
 ### ✅ Indexers
@@ -286,6 +292,34 @@ mock.Verify(m => m.GetById<User>(123), Times.Once);
 mock.Verify(m => m.Save(user), Times.Once);
 ```
 
+### Ref/Out Parameters
+
+```csharp
+public interface IParser
+{
+    bool TryParse(string input, out int result);
+    void Increment(ref int value);
+}
+
+var impl = new Parser();
+var mock = new Mock<IParser>();
+mock.SetupAsProxy(impl);
+
+// Out parameters are automatically forwarded
+var success = mock.Object.TryParse("123", out var value);
+Assert.True(success);
+Assert.Equal(123, value);
+
+// Ref parameters work too
+int number = 5;
+mock.Object.Increment(ref number);
+Assert.Equal(6, number);
+
+// Verify calls with It.Ref<T>.IsAny
+mock.Verify(m => m.TryParse("123", out It.Ref<int>.IsAny), Times.Once);
+mock.Verify(m => m.Increment(ref It.Ref<int>.IsAny), Times.Once);
+```
+
 ## Advanced Scenarios
 
 ### Reset and Reapply
@@ -311,8 +345,9 @@ Assert.Equal(5, mock.Object.Add(2, 3));
 
 ## Limitations
 
-- **Ref/out parameters**: Not supported due to Moq and expression tree limitations
-- **By-ref structs** (e.g., `Span<T>`, `ReadOnlySpan<T>`): Not supported
+- **Ref/out parameters**: Methods with ref/out parameters are automatically forwarded to the implementation. You can
+  verify calls using `It.Ref<T>.IsAny`, but cannot verify specific out values (Moq limitation).
+- **By-ref structs** (e.g., `Span<T>`, `ReadOnlySpan<T>`): Not supported due to C# expression tree limitations
 - **Indexers with 3+ parameters**: Limited support due to implementation complexity
 - **Write-only indexers**: Have limited support due to Moq API constraints
 
@@ -320,10 +355,14 @@ Assert.Equal(5, mock.Object.Add(2, 3));
 
 MoqProxy uses a sophisticated approach to enable proxy mocking:
 
-1. **Reflection & Expression Trees**: Dynamically inspects the mocked type and creates Moq setups using expression trees for properties, methods, and indexers
-2. **Generic Method Handling**: Uses `MethodInfo.Invoke` for generic methods that can't be represented in expression trees
-3. **Custom Interceptor**: Injects a Castle.DynamicProxy interceptor to handle edge cases and ensure all calls are forwarded
-4. **Sentinel Pattern**: Uses a special `NullReturnValue` sentinel to detect when no explicit setup was matched, triggering fallback to the real implementation
+1. **Reflection & Expression Trees**: Dynamically inspects the mocked type and creates Moq setups using expression trees
+   for properties, methods, and indexers
+2. **Generic Method Handling**: Uses `MethodInfo.Invoke` for generic methods that can't be represented in expression
+   trees
+3. **Custom Interceptor**: Injects a Castle.DynamicProxy interceptor to handle edge cases and ensure all calls are
+   forwarded
+4. **Sentinel Pattern**: Uses a special `NullReturnValue` sentinel to detect when no explicit setup was matched,
+   triggering fallback to the real implementation
 
 The library handles complex scenarios including:
 
@@ -357,4 +396,5 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 ### Co-authored with Artificial Intelligence
 
 This repository is part of an ongoing exploration into human-AI co-creation.  
-The code, comments, and structure emerged through dialogue between human intent and LLM reasoning — reviewed, refined, and grounded in human understanding.
+The code, comments, and structure emerged through dialogue between human intent and LLM reasoning — reviewed, refined,
+and grounded in human understanding.
