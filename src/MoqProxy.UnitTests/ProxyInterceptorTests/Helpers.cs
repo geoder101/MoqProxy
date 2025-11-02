@@ -13,20 +13,8 @@ internal static class Helpers
     /// </summary>
     internal static IInterceptor[] GetInterceptors(object proxyObject)
     {
-        if (proxyObject is not IProxyTargetAccessor)
-        {
-            throw new InvalidOperationException("Object is not a Castle.DynamicProxy proxy");
-        }
-
-        var proxyType = proxyObject.GetType();
-        var interceptorsField = proxyType.GetField("__interceptors", BindingFlags.NonPublic | BindingFlags.Instance);
-
-        if (interceptorsField == null)
-        {
-            throw new InvalidOperationException("Could not find __interceptors field");
-        }
-
-        return (IInterceptor[])interceptorsField.GetValue(proxyObject)!;
+        var interceptors = CastleDynamicProxyInterceptorsFieldAccessor.GetInterceptors(proxyObject);
+        return interceptors ?? throw new InvalidOperationException("Could not get interceptors from proxy object");
     }
 
     /// <summary>

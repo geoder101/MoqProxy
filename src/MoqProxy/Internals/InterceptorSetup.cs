@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 George Dernikos <geoder101@gmail.com>
 
-using System.Reflection;
-using Castle.DynamicProxy;
 using Moq;
 
 namespace MoqProxy.Internals;
@@ -28,20 +26,13 @@ internal static class InterceptorSetup
         T impl)
         where T : class
     {
-        if (mock.Object is not IProxyTargetAccessor)
+        // Get current interceptors using reflection
+        var currentInterceptors = CastleDynamicProxyInterceptorsFieldAccessor.GetInterceptors(mock.Object);
+        if (currentInterceptors == null)
         {
             return false;
         }
 
-        // Use reflection to access the __interceptors field (Castle DynamicProxy implementation detail)
-        var proxyType = mock.Object.GetType();
-        var interceptorsField = proxyType.GetField("__interceptors", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (interceptorsField == null)
-        {
-            return false;
-        }
-
-        var currentInterceptors = (IInterceptor[])interceptorsField.GetValue(mock.Object)!;
         // Check if our interceptor is already added - skip if it is
         if (currentInterceptors.Any(i => i is FallbackMethodProxyInterceptor<T>))
         {
@@ -52,7 +43,13 @@ internal static class InterceptorSetup
         var fallbackProxyInterceptor = new FallbackMethodProxyInterceptor<T>(impl);
         // Prepend our interceptor to the beginning of the chain so it runs first
         var newInterceptors = new[] { fallbackProxyInterceptor }.Concat(currentInterceptors).ToArray();
-        interceptorsField.SetValue(mock.Object, newInterceptors);
+
+        // Set the new interceptors array
+        if (!CastleDynamicProxyInterceptorsFieldAccessor.TrySetInterceptors(mock.Object, newInterceptors))
+        {
+            return false;
+        }
+
         // Set up custom default value provider to return NullReturnValue sentinel
         mock.DefaultValueProvider = NullReturnValueProvider.Instance;
         return true;
