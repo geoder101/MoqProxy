@@ -18,10 +18,10 @@ MoqProxy bridges the gap between full mocking and real implementations, giving y
 ## How is this different from `CallBase = true`?
 
 | Feature                      | MoqProxy (`SetupAsProxy`)                | `CallBase = true`                             |
-|------------------------------|------------------------------------------|-----------------------------------------------|
+| ---------------------------- | ---------------------------------------- | --------------------------------------------- |
 | **Works with interfaces**    | ✅ Yes - forwards to any implementation   | ❌ No - interfaces have no base implementation |
 | **Separate implementation**  | ✅ Forwards to a different instance       | ❌ Only calls the mock's own base methods      |
-| **Property synchronization** | ✅ Mock and implementation stay in sync   | ⚠️ Only if mock is the implementation         |
+| **Property synchronization** | ✅ Mock and implementation stay in sync   | ⚠️ Only if mock is the implementation          |
 | **Use case**                 | Spy on existing objects, test decorators | Partial mocking of concrete classes           |
 | **Generic method support**   | ✅ Full support via custom interceptor    | ✅ Supported                                   |
 | **Indexer support**          | ✅ 1-2 parameter indexers                 | ✅ Supported                                   |
@@ -93,7 +93,7 @@ mock.Verify(m => m.DoSomething(), Times.Once);
 - Read-write properties
 - Complex type properties (collections, dictionaries, etc.)
 - Null value handling
-- **State synchronization** - changes to mock properties are reflected in the implementation and vice versa
+- State synchronization - changes to mock properties are reflected in the implementation and vice versa
 
 ### ✅ Methods
 
@@ -101,9 +101,9 @@ mock.Verify(m => m.DoSomething(), Times.Once);
 - Methods with return values
 - Methods with 0-4+ parameters
 - Method overloads
-- **Generic methods** - full support including type inference
-- **Async methods** - `Task` and `Task<T>`
-- **Ref/out parameters** - automatic forwarding with verification support
+- Generic methods - full support including type inference
+- Async methods - `Task` and `Task<T>`
+- Ref/out parameters - automatic forwarding with verification support
 - Various return types (primitives, objects, collections, etc.)
 
 ### ✅ Indexers
@@ -115,10 +115,10 @@ mock.Verify(m => m.DoSomething(), Times.Once);
 
 ### ✅ Advanced Features
 
-- **Selective override** - Override specific behaviors while keeping others proxied
-- **Mock reset** - Call `mock.Reset()` then `SetupAsProxy()` again to restore proxying
-- **Multiple instances** - Proxy multiple implementations with different mocks
-- **Custom interceptor** - Uses Castle.DynamicProxy for edge cases
+- Selective override - Override specific behaviors while keeping others proxied
+- Mock reset - Call `mock.Reset()` then `SetupAsProxy()` again to restore proxying
+- Multiple instances - Proxy multiple implementations with different mocks
+- Custom interceptor - Uses Castle.DynamicProxy for edge cases
 
 ## Usage Examples
 
@@ -374,9 +374,95 @@ The library handles complex scenarios including:
 
 ## Requirements
 
-- .NET 6.0 or later
-- Moq 4.20.72 or later
-- Castle.Core (dependency of Moq)
+- **.NET 8.0 or later** - The library targets .NET 8.0
+- **Moq 4.20.72 or later** - Core mocking framework
+- **Castle.Core** - Dependency of Moq, used for dynamic proxy generation
+
+## Project Structure
+
+```text
+MoqProxy/
+├── src/
+│   ├── MoqProxy/                                          # Core library
+│   │   ├── MoqProxyExtensions.cs                          # Main API
+│   │   └── Internals/                                     # Internal implementation
+│   │       ├── PropertySetup.cs                           # Property forwarding
+│   │       ├── MethodSetup.cs                             # Method forwarding
+│   │       ├── InterceptorSetup.cs                        # Castle.Core interceptor
+│   │       └── ...
+│   ├── MoqProxy.DependencyInjection.Microsoft/            # DI integration package
+│   │   └── MoqProxyServiceCollectionExtensions.cs
+│   ├── MoqProxy.UnitTests/                                # Unit tests
+│   │   ├── MethodProxyTests/
+│   │   ├── PropertyProxyTests/
+│   │   └── ProxyInterceptorTests/
+│   ├── MoqProxy.DependencyInjection.Microsoft.UnitTests/  # DI tests
+│   └── Demo/                                              # Demo application
+└── README.md
+```
+
+## Building from Source
+
+### Prerequisites
+
+- [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later
+- Git
+
+### Clone and Build
+
+```bash
+# Clone the repository
+git clone https://github.com/geoder101/MoqProxy.git
+cd MoqProxy
+
+# Restore dependencies
+dotnet restore src/MoqProxy.sln
+
+# Build the solution
+dotnet build src/MoqProxy.sln
+
+# Run tests
+dotnet test src/MoqProxy.sln
+
+# Create NuGet packages (optional)
+dotnet pack --output out/nupkgs src/MoqProxy.sln
+```
+
+### Running the Demo
+
+```bash
+cd src/Demo
+dotnet run
+```
+
+The demo application showcases the core functionality of MoqProxy including property synchronization, method forwarding, generic methods, and async operations.
+
+## Testing
+
+The project includes comprehensive unit tests covering:
+
+- **Property proxying** - Regular properties, read-only, write-only, state synchronization
+- **Method proxying** - Sync/async methods, various parameter counts, return types
+- **Generic methods** - Type inference, multiple type parameters
+- **Ref/out parameters** - Automatic forwarding and verification
+- **Indexers** - Single and multi-parameter indexers
+- **Edge cases** - Overrides, resets, interceptor behavior
+
+Run all tests:
+
+```bash
+dotnet test src/MoqProxy.sln
+```
+
+Run with coverage (requires additional tooling):
+
+```bash
+dotnet test src/MoqProxy.sln /p:CollectCoverage=true
+```
+
+## Versioning
+
+This project uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) for automatic semantic versioning based on git history. Version numbers are automatically generated during build.
 
 ## Contributing
 

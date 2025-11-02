@@ -216,10 +216,18 @@ public static IServiceCollection AddMoqProxy<TService>(
 - The mock is automatically configured to proxy all calls using `SetupAsProxy()`
 - The original service lifetime (Singleton, Scoped, Transient) is preserved
 
+## Technical Requirements
+
+- **.NET 8.0 or later** - The library targets .NET 8.0
+- **Microsoft.Extensions.DependencyInjection 9.0.10 or later**
+- **MoqProxy** - The core proxy functionality (installed as a dependency)
+- **Moq 4.20.72 or later**
+
 ## Related Projects
 
 - [MoqProxy](https://github.com/geoder101/MoqProxy) - The core proxy pattern extension for Moq
 - [Moq](https://github.com/devlooped/moq) - The popular .NET mocking library
+- [Microsoft.Extensions.DependencyInjection](https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection/) - Microsoft's DI container
 
 ## Contributing
 
