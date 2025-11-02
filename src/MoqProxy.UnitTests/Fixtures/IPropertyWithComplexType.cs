@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2025 George Dernikos <geoder101@gmail.com>
+
+namespace MoqProxy.UnitTests.Fixtures;
+
+public interface IPropertyWithComplexType
+{
+    List<string> ListProp { get; set; }
+
+    Dictionary<int, string> DictProp { get; set; }
+}
