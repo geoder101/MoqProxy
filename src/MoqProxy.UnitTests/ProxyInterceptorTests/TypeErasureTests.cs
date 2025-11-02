@@ -4,9 +4,9 @@
 namespace MoqProxy.UnitTests.ProxyInterceptorTests;
 
 /// <summary>
-/// Tests for <see cref="TypeExtensions"/> class, focusing on generic parameter erasure functionality.
+/// Tests for <see cref="TypeErasure"/> class, focusing on generic parameter erasure functionality.
 /// </summary>
-public class TypeExtensionsTests
+public class TypeErasureTests
 {
     #region EraseGenericParameters Tests
 
@@ -35,7 +35,7 @@ public class TypeExtensionsTests
 
         // Get a generic parameter from a generic method
         var method =
-            typeof(TypeExtensionsTests).GetMethod(nameof(GenericMethod), BindingFlags.NonPublic | BindingFlags.Static)!;
+            typeof(TypeErasureTests).GetMethod(nameof(GenericMethod), BindingFlags.NonPublic | BindingFlags.Static)!;
         var genericParam = method.GetGenericArguments()[0];
 
         /* Act */
@@ -179,7 +179,7 @@ public class TypeExtensionsTests
 
         // We can't actually create Nullable<T> at runtime where T is a generic parameter,
         // so we need to get it from a method signature
-        var method = typeof(TypeExtensionsTests).GetMethod(nameof(MethodWithNullableGenericParameter),
+        var method = typeof(TypeErasureTests).GetMethod(nameof(MethodWithNullableGenericParameter),
             BindingFlags.NonPublic | BindingFlags.Static)!;
         var nullableType = method.GetParameters()[0].ParameterType;
 
@@ -240,7 +240,7 @@ public class TypeExtensionsTests
         /* Arrange */
 
         // Get a constrained generic parameter (e.g., from a method with where T : struct)
-        var method = typeof(TypeExtensionsTests).GetMethod(nameof(ConstrainedGenericMethod),
+        var method = typeof(TypeErasureTests).GetMethod(nameof(ConstrainedGenericMethod),
             BindingFlags.NonPublic | BindingFlags.Static)!;
         var genericParam = method.GetGenericArguments()[0];
 
@@ -268,7 +268,7 @@ public class TypeExtensionsTests
         /* Arrange */
 
         var method =
-            typeof(TypeExtensionsTests).GetMethod(nameof(GenericMethod), BindingFlags.NonPublic | BindingFlags.Static)!;
+            typeof(TypeErasureTests).GetMethod(nameof(GenericMethod), BindingFlags.NonPublic | BindingFlags.Static)!;
         Assert.True(method.IsGenericMethodDefinition);
 
         /* Act */
@@ -294,7 +294,7 @@ public class TypeExtensionsTests
         /* Arrange */
 
         var method =
-            typeof(TypeExtensionsTests).GetMethod(nameof(NonGenericMethod),
+            typeof(TypeErasureTests).GetMethod(nameof(NonGenericMethod),
                 BindingFlags.NonPublic | BindingFlags.Static)!;
         Assert.False(method.IsGenericMethodDefinition);
 
@@ -314,7 +314,7 @@ public class TypeExtensionsTests
         /* Arrange */
 
         var method =
-            typeof(TypeExtensionsTests).GetMethod(nameof(GenericMethod), BindingFlags.NonPublic | BindingFlags.Static)!;
+            typeof(TypeErasureTests).GetMethod(nameof(GenericMethod), BindingFlags.NonPublic | BindingFlags.Static)!;
         var concreteMethod = method.MakeGenericMethod(typeof(string));
         Assert.False(concreteMethod.IsGenericMethodDefinition);
 
@@ -333,7 +333,7 @@ public class TypeExtensionsTests
     {
         /* Arrange */
 
-        var method = typeof(TypeExtensionsTests).GetMethod(nameof(ConstrainedGenericMethod),
+        var method = typeof(TypeErasureTests).GetMethod(nameof(ConstrainedGenericMethod),
             BindingFlags.NonPublic | BindingFlags.Static)!;
         Assert.True(method.IsGenericMethodDefinition);
 
@@ -353,7 +353,7 @@ public class TypeExtensionsTests
     {
         /* Arrange */
 
-        var method = typeof(TypeExtensionsTests).GetMethod(nameof(MultipleGenericParametersMethod),
+        var method = typeof(TypeErasureTests).GetMethod(nameof(MultipleGenericParametersMethod),
             BindingFlags.NonPublic | BindingFlags.Static)!;
         Assert.True(method.IsGenericMethodDefinition);
 

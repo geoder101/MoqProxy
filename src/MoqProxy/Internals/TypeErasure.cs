@@ -7,9 +7,9 @@ using System.Reflection;
 namespace MoqProxy.Internals;
 
 /// <summary>
-/// Provides extension methods for type manipulation and generic parameter erasure.
+/// Provides extension methods for generic parameter erasure and type manipulation.
 /// </summary>
-internal static class TypeExtensions
+internal static class TypeErasure
 {
     /// <summary>
     /// Replaces any open generic parameters in a <see cref="Type"/> with <see cref="object"/>.
