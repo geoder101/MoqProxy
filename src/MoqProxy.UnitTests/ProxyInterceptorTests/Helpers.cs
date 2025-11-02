@@ -11,7 +11,7 @@ internal static class Helpers
     /// <summary>
     /// Helper method to get the interceptors array from a Castle.DynamicProxy proxy object.
     /// </summary>
-    public static IInterceptor[] GetInterceptors(object proxyObject)
+    internal static IInterceptor[] GetInterceptors(object proxyObject)
     {
         if (proxyObject is not IProxyTargetAccessor)
         {
@@ -30,20 +30,23 @@ internal static class Helpers
     }
 
     /// <summary>
-    /// Helper method to check if an interceptor is a FallbackMethodProxyInterceptor.
+    /// Helper method to check if an interceptor is a <see cref="FallbackMethodProxyInterceptor{T}"/>.
     /// </summary>
-    public static bool IsProxyInterceptor(IInterceptor interceptor)
-        => interceptor.GetType().Name.Contains("FallbackMethodProxyInterceptor");
+    internal static bool IsProxyInterceptor(IInterceptor interceptor)
+    {
+        var type = interceptor.GetType();
+        return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(FallbackMethodProxyInterceptor<>);
+    }
 
     /// <summary>
-    /// Helper method to count the number of FallbackMethodProxyInterceptor instances in the interceptors array.
+    /// Helper method to count the number of <see cref="FallbackMethodProxyInterceptor{T}"/> instances in the interceptors array.
     /// </summary>
-    public static int CountProxyInterceptors(IInterceptor[] interceptors)
+    internal static int CountProxyInterceptors(IInterceptor[] interceptors)
         => interceptors.Count(IsProxyInterceptor);
 
     /// <summary>
-    /// Helper method to check if any FallbackMethodProxyInterceptor instances exist in the interceptors array.
+    /// Helper method to check if any <see cref="FallbackMethodProxyInterceptor{T}"/> instances exist in the interceptors array.
     /// </summary>
-    public static bool ProxyInterceptorExists(IInterceptor[] interceptors)
+    internal static bool ProxyInterceptorExists(IInterceptor[] interceptors)
         => CountProxyInterceptors(interceptors) > 0;
 }

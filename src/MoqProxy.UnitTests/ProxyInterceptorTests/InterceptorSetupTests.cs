@@ -32,7 +32,7 @@ public class InterceptorSetupTests
             "Expected at least one interceptor to be present");
         Assert.True(
             Helpers.ProxyInterceptorExists(interceptors),
-            "Expected FallbackMethodProxyInterceptor to be present");
+            $"Expected {typeof(FallbackMethodProxyInterceptor<>).Name} to be present");
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class InterceptorSetupTests
         var firstInterceptor = interceptors[0];
         Assert.True(
             Helpers.IsProxyInterceptor(firstInterceptor),
-            "Expected FallbackMethodProxyInterceptor to be the first interceptor");
+            $"Expected {typeof(FallbackMethodProxyInterceptor<>).Name} to be the first interceptor");
     }
 
     [Fact]
