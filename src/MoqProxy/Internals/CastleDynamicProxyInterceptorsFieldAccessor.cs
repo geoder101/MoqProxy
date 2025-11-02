@@ -16,7 +16,7 @@ internal static class CastleDynamicProxyInterceptorsFieldAccessor
     /// </summary>
     /// <param name="proxyObject">The proxy object to get the interceptors field for.</param>
     /// <returns>The FieldInfo for the __interceptors field, or null if not found.</returns>
-    private static FieldInfo? GetInterceptorsField(object proxyObject)
+    internal static FieldInfo? GetInterceptorsField(object proxyObject)
     {
         if (proxyObject is not IProxyTargetAccessor)
         {
