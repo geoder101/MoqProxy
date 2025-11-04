@@ -17,14 +17,15 @@ MoqProxy bridges the gap between full mocking and real implementations, giving y
 
 ## How is this different from `CallBase = true`?
 
-| Feature                      | MoqProxy (`SetupAsProxy`)                | `CallBase = true`                             |
-| ---------------------------- | ---------------------------------------- | --------------------------------------------- |
-| **Works with interfaces**    | ✅ Yes - forwards to any implementation   | ❌ No - interfaces have no base implementation |
-| **Separate implementation**  | ✅ Forwards to a different instance       | ❌ Only calls the mock's own base methods      |
-| **Property synchronization** | ✅ Mock and implementation stay in sync   | ⚠️ Only if mock is the implementation          |
-| **Use case**                 | Spy on existing objects, test decorators | Partial mocking of concrete classes           |
-| **Generic method support**   | ✅ Full support via custom interceptor    | ✅ Supported                                   |
-| **Indexer support**          | ✅ 1-2 parameter indexers                 | ✅ Supported                                   |
+| Feature                      | MoqProxy (`SetupAsProxy`)                  | `CallBase = true`                             |
+|------------------------------|--------------------------------------------|-----------------------------------------------|
+| **Use case**                 | ✅ Spy on existing objects, test decorators | ⚠️ Partial mocking of concrete classes        |
+| **Works with interfaces**    | ✅ Yes - forwards to any implementation     | ❌ No - interfaces have no base implementation |
+| **Separate implementation**  | ✅ Forwards to a different instance         | ❌ Only calls the mock's own base methods      |
+| **Property synchronization** | ✅ Mock and implementation stay in sync     | ⚠️ Only if mock is the implementation         |
+| **Event forwarding**         | ✅ Event subscriptions forwarded            | ⚠️ Only if mock is the implementation         |
+| **Generic method support**   | ✅ Full support via custom interceptor      | ✅ Supported                                   |
+| **Indexer support**          | ✅ 1-2 parameter indexers                   | ✅ Supported                                   |
 
 **Key Difference:** `CallBase = true` only works with **abstract or virtual members of the mocked class itself**.
 `SetupAsProxy` works with **interfaces** and forwards calls to a **separate implementation instance**, making it perfect
@@ -94,6 +95,15 @@ mock.Verify(m => m.DoSomething(), Times.Once);
 - Complex type properties (collections, dictionaries, etc.)
 - Null value handling
 - State synchronization - changes to mock properties are reflected in the implementation and vice versa
+
+### ✅ Events
+
+- Event subscription (`+=`) forwarding to implementation
+- Event unsubscription (`-=`) forwarding to implementation
+- Standard `EventHandler` and `EventHandler<TEventArgs>` patterns
+- Custom delegate types
+- Multiple handlers on the same event
+- Events raised by implementation invoke handlers subscribed to mock
 
 ### ✅ Methods
 
@@ -272,6 +282,64 @@ Assert.Equal(42, value);
 Assert.Equal(42, impl[0, 0]); // Synchronized
 ```
 
+### Events
+
+```csharp
+public class DataEventArgs : EventArgs
+{
+    public string Data { get; set; } = string.Empty;
+}
+
+public interface INotifier
+{
+    event EventHandler? StatusChanged;
+    event EventHandler<DataEventArgs>? DataReceived;
+    void UpdateStatus();
+    void NotifyData(string data);
+}
+
+public class Notifier : INotifier
+{
+    public event EventHandler? StatusChanged;
+    public event EventHandler<DataEventArgs>? DataReceived;
+
+    public void UpdateStatus()
+    {
+        StatusChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void NotifyData(string data)
+    {
+        DataReceived?.Invoke(this, new DataEventArgs { Data = data });
+    }
+}
+
+var impl = new Notifier();
+var mock = new Mock<INotifier>();
+mock.SetupAsProxy(impl);
+
+var statusChangedCount = 0;
+var receivedData = new List<string>();
+
+// Subscribe to events on the mock
+mock.Object.StatusChanged += (sender, e) => statusChangedCount++;
+mock.Object.DataReceived += (sender, e) => receivedData.Add(e.Data);
+
+// When implementation raises events, handlers subscribed to mock are invoked
+mock.Object.UpdateStatus(); // Raises StatusChanged
+
+Assert.Equal(1, statusChangedCount);
+
+// Works with custom event args
+mock.Object.NotifyData("Hello"); // Raises DataReceived
+
+Assert.Single(receivedData);
+Assert.Equal("Hello", receivedData[0]);
+
+// Verify event-related interactions if needed
+mock.Verify(m => m.UpdateStatus(), Times.Once);
+```
+
 ### Generic Methods
 
 ```csharp
@@ -395,6 +463,7 @@ MoqProxy/
 │   ├── MoqProxy.UnitTests/                                # Unit tests
 │   │   ├── MethodProxyTests/
 │   │   ├── PropertyProxyTests/
+│   │   ├── EventProxyTests/
 │   │   └── ProxyInterceptorTests/
 │   ├── MoqProxy.DependencyInjection.Microsoft.UnitTests/  # DI tests
 │   └── Demo/                                              # Demo application
@@ -435,7 +504,8 @@ cd src/Demo
 dotnet run
 ```
 
-The demo application showcases the core functionality of MoqProxy including property synchronization, method forwarding, generic methods, and async operations.
+The demo application showcases the core functionality of MoqProxy including property synchronization, method forwarding,
+generic methods, and async operations.
 
 ## Testing
 
@@ -443,6 +513,7 @@ The project includes comprehensive unit tests covering:
 
 - **Property proxying** - Regular properties, read-only, write-only, state synchronization
 - **Method proxying** - Sync/async methods, various parameter counts, return types
+- **Event proxying** - Event subscription/unsubscription, standard and custom delegates, multiple handlers
 - **Generic methods** - Type inference, multiple type parameters
 - **Ref/out parameters** - Automatic forwarding and verification
 - **Indexers** - Single and multi-parameter indexers
@@ -462,7 +533,8 @@ dotnet test src/MoqProxy.sln /p:CollectCoverage=true
 
 ## Versioning
 
-This project uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) for automatic semantic versioning based on git history. Version numbers are automatically generated during build.
+This project uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) for automatic semantic
+versioning based on git history. Version numbers are automatically generated during build.
 
 ## Contributing
 

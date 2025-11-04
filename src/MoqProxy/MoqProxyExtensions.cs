@@ -23,6 +23,7 @@ public static class MoqProxyExtensions
     /// <item><description>Inject a fallback interceptor to forward unmatched calls to the implementation</description></item>
     /// <item><description>Forward property getters and setters to the implementation</description></item>
     /// <item><description>Forward method calls to the implementation</description></item>
+    /// <item><description>Forward event subscriptions (add/remove) to the implementation</description></item>
     /// <item><description>Support indexer properties</description></item>
     /// </list>
     /// After calling this method, you can still override specific behaviors using standard Moq Setup methods.

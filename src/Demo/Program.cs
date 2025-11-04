@@ -90,9 +90,57 @@ Console.WriteLine($"Storage[2] = {storageMock.Object[2]}");
 Console.WriteLine();
 
 // ========================================================================================
-// SECTION 4: Override Behavior with Moq Setups
+// SECTION 4: Event Support
 // ========================================================================================
-Console.WriteLine("--- Section 4: Override Behavior with Moq Setups ---");
+Console.WriteLine("--- Section 4: Event Support ---");
+var notifierImpl = new Notifier();
+var notifierMock = new Mock<INotifier>();
+notifierMock.SetupAsProxy(notifierImpl);
+
+var statusChangedCount = 0;
+var dataReceivedCount = 0;
+var receivedMessages = new List<string>();
+
+// Subscribe to events on the mock
+notifierMock.Object.StatusChanged += (sender, e) =>
+{
+    statusChangedCount++;
+    Console.WriteLine(
+        $"  → StatusChanged event fired! (Count: {statusChangedCount}, Sender: {sender?.GetType().Name})");
+};
+
+notifierMock.Object.DataReceived += (sender, e) =>
+{
+    dataReceivedCount++;
+    receivedMessages.Add(e.Message);
+    Console.WriteLine($"  → DataReceived event fired! Message: '{e.Message}' (Count: {dataReceivedCount})");
+};
+
+Console.WriteLine("Subscribed to events. Now calling methods that raise events...");
+
+// Call methods on the mock that trigger events on the implementation
+notifierMock.Object.NotifyStatus();
+notifierMock.Object.SendData("Hello");
+notifierMock.Object.SendData("World");
+
+Console.WriteLine($"\nEvent Summary:");
+Console.WriteLine($"  StatusChanged fired: {statusChangedCount} time(s)");
+Console.WriteLine($"  DataReceived fired: {dataReceivedCount} time(s)");
+Console.WriteLine($"  Messages received: {string.Join(", ", receivedMessages.Select(m => $"'{m}'"))}");
+
+// Unsubscribe one handler
+notifierMock.Object.StatusChanged -= (sender, e) => statusChangedCount++;
+Console.WriteLine("\nUnsubscribed from StatusChanged. Calling NotifyStatus again...");
+notifierMock.Object.NotifyStatus();
+Console.WriteLine($"  StatusChanged count unchanged: {statusChangedCount} (unsubscribe worked!)");
+Console.WriteLine($"  DataReceived still works: {dataReceivedCount} time(s)");
+
+Console.WriteLine();
+
+// ========================================================================================
+// SECTION 5: Override Behavior with Moq Setups
+// ========================================================================================
+Console.WriteLine("--- Section 5: Override Behavior with Moq Setups ---");
 Console.WriteLine("You can still use standard Moq setups to override specific behaviors:");
 
 // Override specific behaviors while keeping the rest proxied
@@ -111,9 +159,9 @@ Console.WriteLine($"GenericMethod<string>('hello') overridden: {mock.Object.Gene
 Console.WriteLine();
 
 // ========================================================================================
-// SECTION 5: Verification
+// SECTION 6: Verification
 // ========================================================================================
-Console.WriteLine("--- Section 5: Verification ---");
+Console.WriteLine("--- Section 6: Verification ---");
 Console.WriteLine("You can verify interactions even with proxied calls:");
 
 // Reset and setup fresh mock
@@ -138,9 +186,9 @@ Console.WriteLine("✓ All verifications passed!");
 Console.WriteLine();
 
 // ========================================================================================
-// SECTION 6: Reset and Re-proxy
+// SECTION 7: Reset and Re-proxy
 // ========================================================================================
-Console.WriteLine("--- Section 6: Reset and Re-proxy ---");
+Console.WriteLine("--- Section 7: Reset and Re-proxy ---");
 mock.Reset();
 mock.SetupAsProxy(impl);
 Console.WriteLine("Mock reset and re-proxied. Calling Method1:");
@@ -297,6 +345,40 @@ public class Storage : IStorage
             Console.WriteLine($"  Impl.Storage[{index}].set <- {value}");
             _storage[index] = value;
         }
+    }
+}
+
+// ========================================================================================
+
+public interface INotifier
+{
+    event EventHandler? StatusChanged;
+    event EventHandler<DataEventArgs>? DataReceived;
+
+    void NotifyStatus();
+    void SendData(string message);
+}
+
+public class DataEventArgs : EventArgs
+{
+    public string Message { get; set; } = string.Empty;
+}
+
+public class Notifier : INotifier
+{
+    public event EventHandler? StatusChanged;
+    public event EventHandler<DataEventArgs>? DataReceived;
+
+    public void NotifyStatus()
+    {
+        Console.WriteLine($"  Impl.{nameof(NotifyStatus)}() - raising StatusChanged event");
+        StatusChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SendData(string message)
+    {
+        Console.WriteLine($"  Impl.{nameof(SendData)}('{message}') - raising DataReceived event");
+        DataReceived?.Invoke(this, new DataEventArgs { Message = message });
     }
 }
 

@@ -57,6 +57,7 @@ internal class FallbackMethodProxyInterceptor<T>(T impl) : IInterceptor
                 // For methods WITHOUT ref/out parameters:
                 //   - Forward only if no Moq setup was matched (checked via sentinel for non-void)
                 //   - Void methods without ref/out are handled by SetupMethod, so don't forward
+                //   - EXCEPTION: Event accessors (add_/remove_) are skipped by SetupMethod, so forward them
 
                 bool setupWasMatched;
                 if (method.ReturnType != typeof(void))
@@ -68,8 +69,14 @@ internal class FallbackMethodProxyInterceptor<T>(T impl) : IInterceptor
                 {
                     // For void methods, we can't easily detect if a setup matched
                     // But void methods with ref/out parameters are NOT set up by SetupMethod
-                    // So we should forward them if they have ref/out params
-                    setupWasMatched = !hasRefOrOutParameters;
+                    // Also, event accessors (add_EventName, remove_EventName) are NOT set up by SetupMethod
+                    // So we should forward them
+                    var isEventAccessor =
+                        method.IsSpecialName
+                        && (method.Name.StartsWith("add_", StringComparison.Ordinal)
+                            || method.Name.StartsWith("remove_", StringComparison.Ordinal));
+
+                    setupWasMatched = !hasRefOrOutParameters && !isEventAccessor;
                 }
 
                 var shouldForward = !setupWasMatched;
