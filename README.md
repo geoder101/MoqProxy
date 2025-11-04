@@ -224,6 +224,20 @@ public interface IAsyncService
     Task ProcessAsync();
 }
 
+public class AsyncService : IAsyncService
+{
+    public async Task<string> GetDataAsync(int id)
+    {
+        await Task.Delay(100); // Simulate async work
+        return $"Data for ID: {id}";
+    }
+
+    public async Task ProcessAsync()
+    {
+        await Task.Delay(100); // Simulate async processing
+    }
+}
+
 var impl = new AsyncService();
 var mock = new Mock<IAsyncService>();
 mock.SetupAsProxy(impl);
@@ -241,6 +255,11 @@ mock.Verify(m => m.ProcessAsync(), Times.Once);
 public interface IConfig
 {
     string ConnectionString { get; set; }
+}
+
+public class Config : IConfig
+{
+    public string ConnectionString { get; set; } = string.Empty;
 }
 
 var impl = new Config { ConnectionString = "Server=localhost" };
@@ -273,7 +292,7 @@ var mock = new Mock<IMatrix>();
 mock.SetupAsProxy(impl);
 
 // Set through indexer
-mock.Object[0, 0] = 42;
+impl[0, 0] = 42; // Caution: `mock.Object[0, 0] = 42;` would not forward to impl due to how Moq handles indexer setters
 
 // Get through indexer
 var value = mock.Object[0, 0];
@@ -343,10 +362,30 @@ mock.Verify(m => m.UpdateStatus(), Times.Once);
 ### Generic Methods
 
 ```csharp
+public class User
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
 public interface IRepository
 {
     T GetById<T>(int id) where T : class;
     void Save<T>(T entity) where T : class;
+}
+
+public class Repository : IRepository
+{
+    public T GetById<T>(int id) where T : class
+    {
+        // Simulate fetching from a data source
+        return (Activator.CreateInstance(typeof(T)) as T)!;
+    }
+
+    public void Save<T>(T entity) where T : class
+    {
+        // Simulate saving to a data source
+    }
 }
 
 var impl = new Repository();
@@ -367,6 +406,19 @@ public interface IParser
 {
     bool TryParse(string input, out int result);
     void Increment(ref int value);
+}
+
+public class Parser : IParser
+{
+    public bool TryParse(string input, out int result)
+    {
+        return int.TryParse(input, out result);
+    }
+
+    public void Increment(ref int value)
+    {
+        value++;
+    }
 }
 
 var impl = new Parser();
