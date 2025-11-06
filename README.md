@@ -34,6 +34,16 @@ for the spy pattern and testing decorators.
 ### Example Comparison
 
 ```csharp
+public interface ICalculator
+{
+    int Add(int x, int y);
+}
+
+public class Calculator : ICalculator
+{
+    public int Add(int x, int y) => x + y;
+}
+
 // ❌ This DOESN'T work - interface has no base implementation
 var mock = new Mock<ICalculator> { CallBase = true };
 mock.Object.Add(2, 3); // Throws - no implementation!
@@ -125,27 +135,73 @@ mock.Verify(m => m.DoSomething(), Times.Once);
 
 ### ✅ Advanced Features
 
+- Spy pattern - Intercept and observe method calls with callbacks while forwarding to implementation
 - Selective override - Override specific behaviors while keeping others proxied
 - Mock reset - Call `mock.Reset()` then `SetupAsProxy()` again to restore proxying
 - Multiple instances - Proxy multiple implementations with different mocks
-- Custom interceptor - Uses Castle.DynamicProxy for edge cases
+- Upstream access - Retrieve the upstream implementation instance from a mock proxy
+
+### ✅ Spy Pattern
+
+Spy on specific methods to observe parameters and return values while still forwarding calls to the real implementation:
+
+```csharp
+var impl = new Calculator();
+var mock = new Mock<ICalculator>();
+mock.SetupAsProxy(impl);
+
+// Spy on a method with a callback that receives parameters
+var capturedParams = new List<(int x, int y)>();
+mock.Spy(
+    m => m.Add(It.IsAny<int>(), It.IsAny<int>()),
+    (int x, int y) => capturedParams.Add((x, y)));
+
+var result1 = mock.Object.Add(2, 3); // Returns 5, forwards to impl
+var result2 = mock.Object.Add(10, 20); // Returns 30, forwards to impl
+
+// The callback captured all parameters
+Assert.Equal(2, capturedParams.Count);
+Assert.Equal((2, 3), capturedParams[0]);
+Assert.Equal((10, 20), capturedParams[1]);
+
+// You can also capture the return value
+var capturedResults = new List<(int x, int y, int result)>();
+mock.Spy(
+    m => m.Add(It.IsAny<int>(), It.IsAny<int>()),
+    (int x, int y, int result) => capturedResults.Add((x, y, result)));
+
+mock.Object.Add(5, 7); // Returns 12
+Assert.Equal((5, 7, 12), capturedResults[0]);
+
+// Verify the calls were made
+mock.Verify(m => m.Add(It.IsAny<int>(), It.IsAny<int>()), Times.Exactly(3));
+```
+
+### ✅ Accessing Upstream Implementation
+
+Retrieve the real implementation instance from a mock proxy:
+
+```csharp
+var impl = new Calculator();
+var mock = new Mock<ICalculator>();
+mock.SetupAsProxy(impl);
+
+// Get the upstream implementation (returns null if not a proxy)
+var upstream = MockProxy.GetUpstreamInstance(mock.Object);
+Assert.NotNull(upstream);
+Assert.Same(impl, upstream);
+
+// Get the Mock<T> from any mock instance (returns null if not a mock)
+var retrievedMock = MockProxy.GetMock(mock.Object);
+Assert.NotNull(retrievedMock);
+Assert.Same(mock, retrievedMock);
+```
 
 ## Usage Examples
 
 ### Basic Proxying
 
 ```csharp
-public interface ICalculator
-{
-    int Add(int x, int y);
-}
-
-public class Calculator : ICalculator
-{
-    public int Add(int x, int y) => x + y;
-}
-
-// Test
 var impl = new Calculator();
 var mock = new Mock<ICalculator>();
 mock.SetupAsProxy(impl);
@@ -199,7 +255,6 @@ public class CachingCalculatorDecorator : ICalculator
     }
 }
 
-// Test
 var impl = new Calculator();
 var mock = new Mock<ICalculator>();
 mock.SetupAsProxy(impl);
@@ -498,30 +553,6 @@ The library handles complex scenarios including:
 - **Moq 4.20.72 or later** - Core mocking framework
 - **Castle.Core** - Dependency of Moq, used for dynamic proxy generation
 
-## Project Structure
-
-```text
-MoqProxy/
-├── src/
-│   ├── MoqProxy/                                          # Core library
-│   │   ├── MoqProxyExtensions.cs                          # Main API
-│   │   └── Internals/                                     # Internal implementation
-│   │       ├── PropertySetup.cs                           # Property forwarding
-│   │       ├── MethodSetup.cs                             # Method forwarding
-│   │       ├── InterceptorSetup.cs                        # Castle.Core interceptor
-│   │       └── ...
-│   ├── MoqProxy.DependencyInjection.Microsoft/            # DI integration package
-│   │   └── MoqProxyServiceCollectionExtensions.cs
-│   ├── MoqProxy.UnitTests/                                # Unit tests
-│   │   ├── MethodProxyTests/
-│   │   ├── PropertyProxyTests/
-│   │   ├── EventProxyTests/
-│   │   └── ProxyInterceptorTests/
-│   ├── MoqProxy.DependencyInjection.Microsoft.UnitTests/  # DI tests
-│   └── Demo/                                              # Demo application
-└── README.md
-```
-
 ## Building from Source
 
 ### Prerequisites
@@ -563,6 +594,8 @@ generic methods, and async operations.
 
 The project includes comprehensive unit tests covering:
 
+- **Spy pattern** - Parameter capture, return value capture, callback invocation with various signatures
+- **MockProxy accessors** - Upstream instance retrieval, Mock<T> retrieval, null handling
 - **Property proxying** - Regular properties, read-only, write-only, state synchronization
 - **Method proxying** - Sync/async methods, various parameter counts, return types
 - **Event proxying** - Event subscription/unsubscription, standard and custom delegates, multiple handlers
@@ -575,12 +608,6 @@ Run all tests:
 
 ```bash
 dotnet test src/MoqProxy.sln
-```
-
-Run with coverage (requires additional tooling):
-
-```bash
-dotnet test src/MoqProxy.sln /p:CollectCoverage=true
 ```
 
 ## Versioning
