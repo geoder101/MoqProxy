@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Main -->
-    <PackageVersion Include="geoder101.Microsoft.Extensions.DependencyInjection" Version="1.0.2-alpha" />
+    <PackageVersion Include="geoder101.Microsoft.Extensions.DependencyInjection" Version="1.0.9" />
     <PackageVersion Include="Moq" Version="4.20.72" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" />
     <!-- Tests -->
@@ -13,7 +13,7 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="All" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" PrivateAssets="All" />
     <!-- Infra -->
-    <GlobalPackageReference Include="Nerdbank.GitVersioning" Version="3.8.118" PrivateAssets="All" />
+    <GlobalPackageReference Include="Nerdbank.GitVersioning" Version="3.9.50" PrivateAssets="All" />
     <GlobalPackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   </ItemGroup>
 </Project>
