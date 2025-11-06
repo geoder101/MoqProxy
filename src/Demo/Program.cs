@@ -195,6 +195,67 @@ Console.WriteLine("Mock reset and re-proxied. Calling Method1:");
 mock.Object.Method1();
 
 Console.WriteLine();
+
+// ========================================================================================
+// SECTION 8: Spy Pattern - Observe Method Calls
+// ========================================================================================
+Console.WriteLine("--- Section 8: Spy Pattern ---");
+Console.WriteLine("Spy on methods to observe parameters and return values:");
+
+// Create a fresh mock for spy demo
+var calcImpl = new Calculator();
+var calcMock = new Mock<ICalculator>();
+calcMock.SetupAsProxy(calcImpl);
+
+// Spy with parameter capture
+var capturedOperations = new List<string>();
+calcMock.Spy(
+    m => m.Add(It.IsAny<int>(), It.IsAny<int>()),
+    (int x, int y) => capturedOperations.Add($"Add({x}, {y})"));
+
+var sum1 = calcMock.Object.Add(2, 3);
+var sum2 = calcMock.Object.Add(10, 20);
+Console.WriteLine($"  Add(2, 3) = {sum1}");
+Console.WriteLine($"  Add(10, 20) = {sum2}");
+Console.WriteLine($"  Captured operations: {string.Join(", ", capturedOperations)}");
+
+// Spy with parameter and result capture
+var capturedResults = new List<string>();
+calcMock.Spy(
+    m => m.Multiply(It.IsAny<int>(), It.IsAny<int>()),
+    (int x, int y, int result) => capturedResults.Add($"{x} * {y} = {result}"));
+
+var product = calcMock.Object.Multiply(5, 7);
+Console.WriteLine($"  Multiply(5, 7) = {product}");
+Console.WriteLine($"  Captured result: {capturedResults[0]}");
+
+Console.WriteLine();
+
+// ========================================================================================
+// SECTION 9: Accessing Upstream Implementation
+// ========================================================================================
+Console.WriteLine("--- Section 9: Accessing Upstream Implementation ---");
+Console.WriteLine("Retrieve the real implementation from a mock proxy:");
+
+// Get upstream implementation
+var upstream = MockProxy.GetUpstreamInstance(calcMock.Object);
+if (upstream != null)
+{
+    Console.WriteLine($"  ✓ Retrieved upstream instance: {upstream.GetType().Name}");
+    Console.WriteLine($"  ✓ Same as original: {ReferenceEquals(calcImpl, upstream)}");
+}
+
+// Get Mock<T> from instance
+var retrievedMock = MockProxy.GetMock(calcMock.Object);
+Console.WriteLine($"  ✓ Retrieved Mock<T>: {retrievedMock != null}");
+Console.WriteLine($"  ✓ Same as original mock: {ReferenceEquals(calcMock, retrievedMock)}");
+
+// Try with non-proxy instance (returns null)
+var plainCalc = new Calculator();
+var noUpstream = MockProxy.GetUpstreamInstance(plainCalc);
+Console.WriteLine($"  ✓ Non-proxy instance returns null: {noUpstream == null}");
+
+Console.WriteLine();
 Console.WriteLine("=== Demo Complete ===");
 
 #pragma warning disable CA1050
@@ -379,6 +440,29 @@ public class Notifier : INotifier
     {
         Console.WriteLine($"  Impl.{nameof(SendData)}('{message}') - raising DataReceived event");
         DataReceived?.Invoke(this, new DataEventArgs { Message = message });
+    }
+}
+
+// ========================================================================================
+
+public interface ICalculator
+{
+    int Add(int x, int y);
+    int Multiply(int x, int y);
+}
+
+public class Calculator : ICalculator
+{
+    public int Add(int x, int y)
+    {
+        Console.WriteLine($"  Impl.Add({x}, {y}) -> {x + y}");
+        return x + y;
+    }
+
+    public int Multiply(int x, int y)
+    {
+        Console.WriteLine($"  Impl.Multiply({x}, {y}) -> {x * y}");
+        return x * y;
     }
 }
 
