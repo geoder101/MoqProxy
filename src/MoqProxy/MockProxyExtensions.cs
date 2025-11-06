@@ -9,7 +9,7 @@ namespace MoqProxy;
 /// <summary>
 /// Provides extension methods for configuring Moq mocks to act as proxies that forward calls to real implementations.
 /// </summary>
-public static class MoqProxyExtensions
+public static class MockProxyExtensions
 {
     /// <summary>
     /// Sets up a mock to act as a proxy by forwarding all calls to the provided implementation.

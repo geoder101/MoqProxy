@@ -43,7 +43,7 @@ internal static class MethodSetup
         {
             // Skip some generic methods here - they're handled separately
             // Skip methods with ref/out parameters (IsByRef) — these cannot be represented in expression trees
-            // and are handled entirely by the FallbackMethodProxyInterceptor
+            // and are handled entirely by the ProxyInterceptor
             // Skip methods with ref-like parameters (IsByRefLike, ref struct) — not supported by expression trees
             if (method.IsSpecialName
                 || method.DeclaringType == typeof(object)

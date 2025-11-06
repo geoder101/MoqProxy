@@ -18,22 +18,22 @@ internal static class Helpers
     }
 
     /// <summary>
-    /// Helper method to check if an interceptor is a <see cref="FallbackMethodProxyInterceptor{T}"/>.
+    /// Helper method to check if an interceptor is a <see cref="ProxyInterceptor{T}"/>.
     /// </summary>
     internal static bool IsProxyInterceptor(IInterceptor interceptor)
     {
         var type = interceptor.GetType();
-        return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(FallbackMethodProxyInterceptor<>);
+        return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ProxyInterceptor<>);
     }
 
     /// <summary>
-    /// Helper method to count the number of <see cref="FallbackMethodProxyInterceptor{T}"/> instances in the interceptors array.
+    /// Helper method to count the number of <see cref="ProxyInterceptor{T}"/> instances in the interceptors array.
     /// </summary>
     internal static int CountProxyInterceptors(IInterceptor[] interceptors)
         => interceptors.Count(IsProxyInterceptor);
 
     /// <summary>
-    /// Helper method to check if any <see cref="FallbackMethodProxyInterceptor{T}"/> instances exist in the interceptors array.
+    /// Helper method to check if any <see cref="ProxyInterceptor{T}"/> instances exist in the interceptors array.
     /// </summary>
     internal static bool ProxyInterceptorExists(IInterceptor[] interceptors)
         => CountProxyInterceptors(interceptors) > 0;

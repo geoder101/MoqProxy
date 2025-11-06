@@ -12,10 +12,20 @@ namespace MoqProxy.Internals;
 /// Properly handles ref/out parameters by copying values back after invocation.
 /// </summary>
 /// <typeparam name="T">The type being mocked.</typeparam>
-/// <param name="impl">The implementation instance to forward calls to.</param>
-internal class FallbackMethodProxyInterceptor<T>(T impl) : IInterceptor
+internal class ProxyInterceptor<T> : IInterceptor
     where T : class
 {
+    /// <summary>
+    /// Creates a new interceptor that forwards to <paramref name="impl"/> when needed.
+    /// </summary>
+    /// <param name="impl">The implementation instance to forward calls to.</param>
+    public ProxyInterceptor(T impl) => UpstreamInstance = impl;
+
+    /// <summary>
+    /// The upstream implementation instance to which calls are forwarded when no Moq setup matches.
+    /// </summary>
+    public T UpstreamInstance { get; }
+
     /// <summary>
     /// Intercepts method calls on the mock proxy, checking if a Moq setup was matched.
     /// If no setup matched (indicated by the sentinel return value), forwards the call to the real implementation.
@@ -87,7 +97,7 @@ internal class FallbackMethodProxyInterceptor<T>(T impl) : IInterceptor
                     var args = invocation.Arguments.ToArray();
 
                     // Invoke the method on the implementation
-                    var result = method.Invoke(impl, args);
+                    var result = method.Invoke(UpstreamInstance, args);
 
                     // Copy back ref/out parameter values
                     for (var i = 0; i < parameters.Length; i++)
@@ -120,5 +130,23 @@ internal class FallbackMethodProxyInterceptor<T>(T impl) : IInterceptor
             case (not null, null): throw exception1;
             case (null, not null): throw exception2;
         }
+    }
+
+    /// <summary>
+    /// Retrieves the <see cref="ProxyInterceptor{T}"/> instance attached to the given proxy instance, if any.
+    /// Uses <see cref="CastleDynamicProxyInterceptorsFieldAccessor.GetInterceptors"/> to read Castle's internal interceptors array.
+    /// Returns null when the provided instance is null, not a Castle proxy, or doesn't contain a <see cref="ProxyInterceptor{T}"/>.
+    /// </summary>
+    /// <param name="instance">The proxy instance to inspect.</param>
+    /// <returns>The matching <see cref="ProxyInterceptor{T}"/> or null if not present.</returns>
+    public static ProxyInterceptor<T>? GetFrom(T? instance)
+    {
+        if (instance is null)
+        {
+            return null;
+        }
+
+        var interceptors = CastleDynamicProxyInterceptorsFieldAccessor.GetInterceptors(instance);
+        return interceptors?.FirstOrDefault(i => i is ProxyInterceptor<T>) as ProxyInterceptor<T>;
     }
 }

@@ -6,7 +6,7 @@ namespace MoqProxy.Internals;
 /// <summary>
 /// Sentinel type used to detect when Moq has not matched any setup for a method call.
 /// This singleton value is returned by the custom <see cref="NullReturnValueProvider"/> and checked
-/// by the <see cref="FallbackMethodProxyInterceptor{T}"/> to determine whether to forward the call to the real implementation.
+/// by the <see cref="ProxyInterceptor{T}"/> to determine whether to forward the call to the real implementation.
 /// </summary>
 internal sealed class NullReturnValue
 {

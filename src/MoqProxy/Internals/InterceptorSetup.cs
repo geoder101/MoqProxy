@@ -34,15 +34,15 @@ internal static class InterceptorSetup
         }
 
         // Check if our interceptor is already added - skip if it is
-        if (currentInterceptors.Any(i => i is FallbackMethodProxyInterceptor<T>))
+        if (currentInterceptors.Any(i => i is ProxyInterceptor<T>))
         {
             return false;
         }
 
         // Create our custom interceptor
-        var fallbackProxyInterceptor = new FallbackMethodProxyInterceptor<T>(impl);
+        var proxyInterceptor = new ProxyInterceptor<T>(impl);
         // Prepend our interceptor to the beginning of the chain so it runs first
-        var newInterceptors = new[] { fallbackProxyInterceptor }.Concat(currentInterceptors).ToArray();
+        var newInterceptors = new[] { proxyInterceptor }.Concat(currentInterceptors).ToArray();
 
         // Set the new interceptors array
         if (!CastleDynamicProxyInterceptorsFieldAccessor.TrySetInterceptors(mock.Object, newInterceptors))
