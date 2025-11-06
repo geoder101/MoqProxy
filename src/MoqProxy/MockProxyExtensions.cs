@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2025 George Dernikos <geoder101@gmail.com>
 
+using System.Linq.Expressions;
 using Moq;
 using MoqProxy.Internals;
 
@@ -42,4 +43,41 @@ public static class MockProxyExtensions
         PropertySetup.SetupProperties(mock, impl);
         MethodSetup.SetupMethods(mock, impl);
     }
+
+    /// <summary>
+    /// Sets up a spy on a specific void method, forwarding calls to the upstream implementation while tracking them with Moq.
+    /// This allows you to verify that the method was called while still executing the real implementation.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <param name="mock">The mock proxy instance.</param>
+    /// <param name="expression">Expression specifying the method to spy on.</param>
+    /// <param name="callback">Callback invoked when the method is called. Can be Action, Action&lt;T1&gt;, Action&lt;T1, T2&gt;, etc. matching the method signature.</param>
+    /// <remarks>
+    /// The mock must have been configured as a proxy using <see cref="SetupAsProxy{T}"/> before calling this method.
+    /// </remarks>
+    public static void Spy<T>(
+        this Mock<T> mock,
+        Expression<Action<T>> expression,
+        Delegate callback)
+        where T : class
+        => MethodSpySetup.SetupVoidMethodSpy(mock, expression, callback);
+
+    /// <summary>
+    /// Sets up a spy on a specific method that has a return value, forwarding calls to the upstream implementation while tracking them with Moq.
+    /// This allows you to verify that the method was called while still executing the real implementation.
+    /// </summary>
+    /// <typeparam name="T">The type being mocked.</typeparam>
+    /// <typeparam name="TResult">The return type of the method.</typeparam>
+    /// <param name="mock">The mock proxy instance.</param>
+    /// <param name="expression">Expression specifying the method to spy on.</param>
+    /// <param name="callback">Callback invoked before the real implementation is called. Can be Action, Action&lt;T1&gt;, Action&lt;T1, TResult&gt;, etc.</param>
+    /// <remarks>
+    /// The mock must have been configured as a proxy using <see cref="SetupAsProxy{T}"/> before calling this method.
+    /// </remarks>
+    public static void Spy<T, TResult>(
+        this Mock<T> mock,
+        Expression<Func<T, TResult>> expression,
+        Delegate callback)
+        where T : class
+        => MethodSpySetup.SetupReturningMethodSpy(mock, expression, callback);
 }
