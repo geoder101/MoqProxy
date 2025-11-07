@@ -47,61 +47,44 @@ internal static class MethodSpySetup
         // Create the callback delegate that forwards to the implementation
         var forwardDelegate = DelegateFactory.CreateCallbackDelegate(impl, method, paramTypes);
 
-        // Combine user callback with forwarding into a single delegate
-        Delegate combinedCallback;
-        if (paramTypes.Length == 0)
-        {
-            // For parameterless methods
-            void CombinedCallback()
-            {
-                callback.DynamicInvoke();
-                ((Action)forwardDelegate).Invoke();
-            }
+        var actionType = Expression.GetActionType(paramTypes);
 
-            combinedCallback = (Action)CombinedCallback;
+        var paramExprs =
+            paramTypes
+                .Select((t, i) => Expression.Parameter(t, $"p{i + 1}"))
+                .ToArray();
+
+        // Call user callback - check if callback expects parameters
+        Expression userCallbackExpr;
+        var callbackParams = callback.Method.GetParameters();
+        if (callbackParams.Length == 0)
+        {
+            // Parameterless callback
+            userCallbackExpr = Expression.Invoke(Expression.Constant(callback));
+        }
+        else if (callbackParams.Length == paramTypes.Length)
+        {
+            // Callback with matching parameters
+            // ReSharper disable once CoVariantArrayConversion
+            userCallbackExpr = Expression.Invoke(Expression.Constant(callback), paramExprs);
         }
         else
         {
-            // For methods with parameters, create a delegate that matches the signature
-            var actionType = Expression.GetActionType(paramTypes);
-
-            var paramExprs =
-                paramTypes
-                    .Select((t, i) => Expression.Parameter(t, $"p{i + 1}"))
-                    .ToArray();
-
-            // Call user callback - check if callback expects parameters
-            Expression userCallbackExpr;
-            var callbackParams = callback.Method.GetParameters();
-            if (callbackParams.Length == 0)
-            {
-                // Parameterless callback
-                userCallbackExpr = Expression.Invoke(Expression.Constant(callback));
-            }
-            else if (callbackParams.Length == paramTypes.Length)
-            {
-                // Callback with matching parameters
-                // ReSharper disable once CoVariantArrayConversion
-                userCallbackExpr = Expression.Invoke(Expression.Constant(callback), paramExprs);
-            }
-            else
-            {
-                throw new ArgumentException(
-                    $"Callback must have 0 or {paramTypes.Length} parameters.",
-                    nameof(callback));
-            }
-
-            // Call forward delegate
-            // ReSharper disable once CoVariantArrayConversion
-            var forwardCallExpr = Expression.Invoke(Expression.Constant(forwardDelegate), paramExprs);
-
-            // Combine them in a block
-            var blockExpr = Expression.Block(userCallbackExpr, forwardCallExpr);
-
-            // Create lambda
-            var lambdaExpr = Expression.Lambda(actionType, blockExpr, paramExprs);
-            combinedCallback = lambdaExpr.Compile();
+            throw new ArgumentException(
+                $"Callback must have 0 or {paramTypes.Length} parameters.",
+                nameof(callback));
         }
+
+        // Call forward delegate
+        // ReSharper disable once CoVariantArrayConversion
+        var forwardCallExpr = Expression.Invoke(Expression.Constant(forwardDelegate), paramExprs);
+
+        // Combine them in a block
+        var blockExpr = Expression.Block(userCallbackExpr, forwardCallExpr);
+
+        // Create lambda
+        var lambdaExpr = Expression.Lambda(actionType, blockExpr, paramExprs);
+        var combinedCallback = lambdaExpr.Compile();
 
         // Set up the mock with the combined callback
         var setup = mock.Setup(expression);
@@ -172,29 +155,29 @@ internal static class MethodSpySetup
         // Call the forward delegate to get the result
         // ReSharper disable once CoVariantArrayConversion
         var forwardCallExpr = Expression.Invoke(Expression.Constant(forwardDelegate), paramExprs);
-        var resultVar = Expression.Variable(typeof(TResult), "result");
-        var assignResult = Expression.Assign(resultVar, forwardCallExpr);
+        var resultVarExpr = Expression.Variable(typeof(TResult), "result");
+        var assignResultExpr = Expression.Assign(resultVarExpr, forwardCallExpr);
 
         // Invoke the user callback
-        Expression callbackInvoke;
+        Expression callbackInvokeExpr;
         var callbackParams = callback.Method.GetParameters();
         if (callbackParams.Length == 0)
         {
             // Parameterless callback
-            callbackInvoke = Expression.Invoke(Expression.Constant(callback));
+            callbackInvokeExpr = Expression.Invoke(Expression.Constant(callback));
         }
         else if (callbackParams.Length == paramTypes.Length)
         {
             // Callback with parameters only
             // ReSharper disable once CoVariantArrayConversion
-            callbackInvoke = Expression.Invoke(Expression.Constant(callback), paramExprs);
+            callbackInvokeExpr = Expression.Invoke(Expression.Constant(callback), paramExprs);
         }
         else if (callbackParams.Length == paramTypes.Length + 1)
         {
             // Callback with parameters and result
-            var allArgs = paramExprs.Concat([resultVar]).ToArray();
+            var methodArgsPlusResultParamExprs = paramExprs.Concat([resultVarExpr]).ToArray();
             // ReSharper disable once CoVariantArrayConversion
-            callbackInvoke = Expression.Invoke(Expression.Constant(callback), allArgs);
+            callbackInvokeExpr = Expression.Invoke(Expression.Constant(callback), methodArgsPlusResultParamExprs);
         }
         else
         {
@@ -206,10 +189,10 @@ internal static class MethodSpySetup
         // Combine: assign result, invoke callback, return result
         var blockExpr =
             Expression.Block(
-                [resultVar],
-                assignResult,
-                callbackInvoke,
-                resultVar);
+                [resultVarExpr],
+                assignResultExpr,
+                callbackInvokeExpr,
+                resultVarExpr);
 
         var lambdaExpr = Expression.Lambda(funcType, blockExpr, paramExprs);
         var finalReturnsDelegate = lambdaExpr.Compile();
